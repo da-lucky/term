@@ -14,9 +14,10 @@ constexpr std::size_t MAX_NUM_SESSIONS_ALLOWED = 3;
 
 inline std::string formErrnoString(const char* s) {
     std::string ss{s};
-    ss.append("errno = ") + std::to_string(errno) + std::string(" ");
+
+    ss.append(":errno = ") + std::to_string(errno) + std::string(" ") + std::strerror(errno);
     
-    return (ss + std::strerror(errno));
+    return ss;
 }
 
 }
