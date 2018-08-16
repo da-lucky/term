@@ -2,6 +2,8 @@
 #define COMMONDEFS_HPP
 
 #include <iostream>
+#include <sstream>
+
 
 namespace term_app {
 
@@ -13,11 +15,9 @@ constexpr std::size_t MAX_NUM_SESSIONS_ALLOWED = 3;
 
 
 inline std::string formErrnoString(const char* s) {
-    std::string ss{s};
-
-    ss.append(":errno = ") + std::to_string(errno) + std::string(" ") + std::strerror(errno);
-    
-    return ss;
+    std::stringstream ss{s};
+    ss << " errno = " << errno << " " << std::strerror(errno);
+    return ss.str();
 }
 
 }

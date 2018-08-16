@@ -24,8 +24,7 @@ void provider(int sock, bool& isActiveFlag) {
     prompt(sock);
 
     while(count != -1) {
-        if(count = read(sock, buffer.data(), buffer.size())) {
-            std::cout << "read " << count << " bytes : " << buffer.data() ;
+        if(count = read(sock, buffer.data(), buffer.size())) {            
 
             if(count > 1) {
                 buffer[count-2] = '\0';

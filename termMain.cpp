@@ -13,21 +13,6 @@
 namespace term_app {
     session::SessionManager g_SMgr {};
 
-void sigHandle(int sig) {
-    std::cout << "Signal received: " << sig << "\n";
-}
-
-void registerSigHandler() {
-    struct sigaction signalHandler;
-
-    signalHandler.sa_handler = sigHandle;
-    sigemptyset(&signalHandler.sa_mask);
-    signalHandler.sa_flags = 0;
-
-    sigaction(SIGINT, &signalHandler, NULL);
-    sigaction(SIGKILL, &signalHandler, NULL);
-}
-
 void launchServer() {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -62,7 +47,7 @@ void launchServer() {
 
         if(new_sock < 0) {
             std::cerr << formErrnoString("failed to accept connection::") << "\n";
-            break;
+            continue;
         }
 
         std::cout << "connection established from " << s_in.sin_addr.s_addr << "\n";
@@ -79,8 +64,6 @@ void launchServer() {
 int main(int argc, char* argv[]) {
 
     try {
-        term_app::registerSigHandler();       
-        
         term_app::launchServer();        
 
     } catch (std::exception& e) {

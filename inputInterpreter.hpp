@@ -32,10 +32,8 @@ public:
         }
     }
 
-    ~SessionManager() {
-        std::cout << "SessionManager d-tor\n";
+    ~SessionManager() {        
         for(auto& e: m_threads) {
-            std::cout << "SessionManager threads joining\n";
             if(e.t.joinable()) {
                 e.t.join();
             }
