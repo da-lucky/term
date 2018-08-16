@@ -28,17 +28,6 @@ void registerSigHandler() {
     sigaction(SIGKILL, &signalHandler, NULL);
 }
 
-void printStartInfo(int argc, char* argv[]) {
-
-    system("clear"); // calling clear util usually from /usr/bin/clear
-
-    std::stringstream s {};
-    s << term_app::APP_NAME << " started" << "\n";
-    s << "private terminal for private utils execution\n";
-    
-    std::cout << s.str();
-}
-
 void launchServer() {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -90,9 +79,7 @@ void launchServer() {
 int main(int argc, char* argv[]) {
 
     try {
-        term_app::registerSigHandler();
-
-        term_app::printStartInfo(argc, argv);
+        term_app::registerSigHandler();       
         
         term_app::launchServer();        
 
