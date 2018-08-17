@@ -6,9 +6,7 @@
 
 namespace session {
 
-void prompt();
-
-void provider(int sock, bool& isActiveFlag);
+void handler(int sock, bool& isActiveFlag);
 
 struct SessionThreadDescriptor {
     bool isActive {false};
@@ -53,7 +51,7 @@ public:
             }
 
             try {
-                td->t = std::thread(provider, socket, std::ref(td->isActive));
+                td->t = std::thread(handler, socket, std::ref(td->isActive));
                 td->isActive = true;
                 td->socket = socket;
 

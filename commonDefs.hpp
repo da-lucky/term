@@ -20,6 +20,9 @@ inline std::string formErrnoString(const char* s) {
     return ss.str();
 }
 
+
+constexpr char CR_LF[] = {'\xd','\xa'};
+
 }
 
 #endif
