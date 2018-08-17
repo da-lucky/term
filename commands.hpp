@@ -21,7 +21,7 @@ enum class cmdCode {
     notValid,
 };
 
-const std::map<const char*, cmdCode> cmdMap {
+const std::map<std::string, cmdCode> cmdMap {
     {help_cmd , cmdCode::help},
     {cmd1_cmd , cmdCode::cmd1},
     {cmd1_cmd , cmdCode::cmd2},

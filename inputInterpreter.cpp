@@ -35,18 +35,10 @@ cmdPack defineCmd(std::array<char,MAX_BUF_SIZE>& input) {
         cmd.swap(cp.args);
     }
 
-    auto it = cmdMap.find(cmd.c_str());
-
-    cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid; // ???
-
-    std::cout << "cmd received is :" << cmd << "\targs:" << cp.args << " op code " << static_cast<int>(cp.code)  << "\n";
-
-    // TEMP
-    if(!std::strcmp(exit_cmd, input.data())) {
-        cp.code = cmdCode::exit;
-    }
-    //
-
+    auto it = cmdMap.find(cmd);
+    
+    cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
+    
     return cp;
 }
 
