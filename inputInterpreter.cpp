@@ -13,14 +13,30 @@ using namespace term_app;
 
 namespace {
 
-constexpr std::size_t MAX_BUF_SIZE = 256;
-
+using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
+    
 void prompt(int sock) {
     static const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
-    write(sock, defaultPrompt.c_str(), defaultPrompt.size());
+    send(sock, defaultPrompt.c_str(), defaultPrompt.size(),0);
 }
-
-cmdPack defineCmd(std::array<char,MAX_BUF_SIZE>& input) {
+    
+/*
+std::string receiveCmd(int sock, InputBuffer_T& buf) {
+    
+    std::string cmd {};
+    auto retCode = 0;
+    
+    while(recv(sock, buf.data(), buf.size(), 0) != -1) {
+        cmd.append(buf.data());
+        
+        if (cmd.find_first_of(std::string(CR_LF)) != std::string::npos) {
+            
+        }
+    }
+}
+*/
+    
+cmdPack defineCmd(InputBuffer_T& input) {
 
     cmdPack cp {};  
     std::string cmd {};
@@ -38,9 +54,11 @@ cmdPack defineCmd(std::array<char,MAX_BUF_SIZE>& input) {
 }
 
 
-cmdPack handleInput(std::array<char,MAX_BUF_SIZE>& input, std::size_t readBytes) {
-           
-    if(readBytes > 1 && std::equal(&input[readBytes-2], &input[readBytes], &CR_LF[0])) {
+cmdPack handleInput(InputBuffer_T& input, std::size_t readBytes) {
+    
+    /* skip CR LF to define command correctly later */
+    if(readBytes > 1 &&
+       std::equal(&input[readBytes-2], &input[readBytes], &CR_LF[0])) {
         input[readBytes-2] = '\0';
     }
 
@@ -49,11 +67,13 @@ cmdPack handleInput(std::array<char,MAX_BUF_SIZE>& input, std::size_t readBytes)
     return cp;
 }
 
-std::string executeCmd(cmdPack& cp) {
+std::string processCmd(cmdPack& cp) {
 
-    auto cb = fCbMap.find(cp.code);
+    auto mapIt = fCbMap.find(cp.code);
 
-    std::string output = ( cb == fCbMap.end() ) ? fCbMap.at(cmdCode::notValid).fCb(cp.args) : cb->second.fCb(cp.args);
+    auto& fDescr = ( mapIt == fCbMap.end() ) ? fCbMap.at(cmdCode::notValid) : mapIt->second;
+    
+    std::string output = fDescr.cb(cp.args);
 
     if(! output.empty()) {
         output.append(CR_LF);
@@ -68,7 +88,7 @@ namespace session {
 
 void handler(int sock, bool& isActiveFlag) {
 
-    std::array<char,MAX_BUF_SIZE> recvBuff;
+    InputBuffer_T recvBuff;
     
     prompt(sock);
 
@@ -80,11 +100,12 @@ void handler(int sock, bool& isActiveFlag) {
 
             auto cmd = handleInput(recvBuff, retCode);
 
-            std::string responseToSend = executeCmd(cmd);
+            std::string responseToSend = processCmd(cmd);
 
-            retCode = write(sock, responseToSend.c_str(), responseToSend.size());
+            retCode = send(sock, responseToSend.c_str(), responseToSend.size(), 0);
             if(retCode == -1) {
                 std::cerr << formErrnoString("send returned -1:");
+                break;
             }
 
             if(cmdCode::exit == cmd.code) {

@@ -50,8 +50,8 @@ enum class retCode{
 using callback = std::function<std::string(std::string&)>;
 
 struct funcCbDescriptor {
-    const char* fName;
-    callback fCb;
+    const char* name;
+    callback cb;
 };
 
 const std::map<cmdCode, funcCbDescriptor> fCbMap {

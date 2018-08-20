@@ -12,6 +12,8 @@ constexpr char APP_NAME[] = "term";
 constexpr int LOCAL_PORT_TO_LISTEN = 30000;
 
 constexpr std::size_t MAX_NUM_SESSIONS_ALLOWED = 3;
+    
+constexpr std::size_t MAX_BUF_SIZE = 3;
 
 
 inline std::string formErrnoString(const char* s) {
