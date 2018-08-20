@@ -28,12 +28,7 @@ cmdPack defineCmd(std::array<char,MAX_BUF_SIZE>& input) {
     cp.args = input.data();
     auto space = cp.args.find_first_of(' ');
     
-    if(space != std::string::npos) {
-        cmd = cp.args.substr(0, space);
-        cp.args = cp.args.substr(space, std::string::npos);
-    } else {
-        cmd.swap(cp.args);
-    }
+    cmd = (space != std::string::npos) ? cp.args.substr(0, space) : cp.args;
 
     auto it = cmdMap.find(cmd);
     
@@ -54,15 +49,17 @@ cmdPack handleInput(std::array<char,MAX_BUF_SIZE>& input, std::size_t readBytes)
     return cp;
 }
 
-retCode executeCmd(cmdPack& cp) {
+std::string executeCmd(cmdPack& cp) {
 
-    // TEMP
-    if(cmdCode::exit == cp.code) {
-        return retCode::EXIT;
-    }
-    //
+    auto cb = fCbMap.find(cp.code);
 
-    return retCode::OK;
+    std::string output = ( cb == fCbMap.end() ) ? fCbMap.at(cmdCode::notValid).fCb(cp.args) : cb->second.fCb(cp.args);
+
+    if(! output.empty()) {
+        output.append(CR_LF);
+    }    
+
+    return output;
 }
 
 }
@@ -83,9 +80,16 @@ void handler(int sock, bool& isActiveFlag) {
 
             auto cmd = handleInput(recvBuff, retCode);
 
-            if( executeCmd(cmd) != retCode::OK ) {
-                break;
+            std::string responseToSend = executeCmd(cmd);
+
+            retCode = write(sock, responseToSend.c_str(), responseToSend.size());
+            if(retCode == -1) {
+                std::cerr << formErrnoString("send returned -1:");
             }
+
+            if(cmdCode::exit == cmd.code) {
+                break;
+            }            
         } else {
             std::cerr << formErrnoString("recv returned -1:");
             break;
