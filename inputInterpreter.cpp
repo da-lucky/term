@@ -4,6 +4,7 @@
 #include <cstring>
 #include <array>
 #include <algorithm>
+#include <queue>
 #include "commonDefs.hpp"
 #include "inputInterpreter.hpp"
 #include "commands.hpp"
@@ -14,27 +15,52 @@ using namespace term_app;
 namespace {
 
 using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
+
+/*=============== new =========================
+thread_local std::queue<std::string> cmdQueue;
+thread_local InputBuffer_T inputBuffer;
+
+void receiveCmd(int sock) {
+    
+    std::string crlf {CR_LF};
+    auto retCode = 0;
+    
+    while(recv(sock, inputBuffer.data(), inputBuffer.size(), 0) != -1) {
+//
+        std::size_t pos = 0;
+        auto crlf = std::search(inputBuffer.begin(), inputBuffer.end(), crlf.begin(), crlf.end());
+        
+        while (crlf != inputBuffer.end()) {
+
+        }
+//
+        cmd.append(inputBuffer.data(), inputBuffer.size());        
+        
+        std::size_t pos = 0;
+        auto crlf = cmd.find(CR_LF);
+
+        while (crlf != std::string::npos) {
+            cmdQueue.push(cmd.substr(pos, crlf));
+
+            pos = crlf + strlen(CR_LF);       
+            crlf = cmd.find(std::string(CR_LF), pos);
+
+            if(crlf == std::string::npos) {
+                cmd = cmd.substr(pos, std::string::npos);
+            }
+        }        
+
+        if(! cmdQueue.empty()) {
+            break;
+        }
+    }
+}
+=============================================*/
     
 void prompt(int sock) {
     static const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
     send(sock, defaultPrompt.c_str(), defaultPrompt.size(),0);
 }
-    
-/*
-std::string receiveCmd(int sock, InputBuffer_T& buf) {
-    
-    std::string cmd {};
-    auto retCode = 0;
-    
-    while(recv(sock, buf.data(), buf.size(), 0) != -1) {
-        cmd.append(buf.data());
-        
-        if (cmd.find_first_of(std::string(CR_LF)) != std::string::npos) {
-            
-        }
-    }
-}
-*/
     
 cmdPack defineCmd(InputBuffer_T& input) {
 
@@ -93,7 +119,7 @@ void handler(int sock, bool& isActiveFlag) {
     prompt(sock);
 
     while(isActiveFlag) {
-        
+//        receiveCmd(sock);
         auto retCode = recv(sock, recvBuff.data(), recvBuff.size(), 0);
         
         if(retCode != -1) {
