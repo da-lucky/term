@@ -16,46 +16,45 @@ namespace {
 
 using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
 
-/*=============== new =========================
-thread_local std::queue<std::string> cmdQueue;
-thread_local InputBuffer_T inputBuffer;
+//=============== new =========================
+thread_local std::queue<std::string> cmdQueue {};
+thread_local InputBuffer_T inputBuffer {};
+thread_local std::string cmdPart {};
 
 void receiveCmd(int sock) {
     
     std::string crlf {CR_LF};
     auto retCode = 0;
     
-    while(recv(sock, inputBuffer.data(), inputBuffer.size(), 0) != -1) {
-//
-        std::size_t pos = 0;
-        auto crlf = std::search(inputBuffer.begin(), inputBuffer.end(), crlf.begin(), crlf.end());
+    while(true) {
+
+        int recvBytes = recv(sock, inputBuffer.data(), inputBuffer.size(), 0);
         
-        while (crlf != inputBuffer.end()) {
+        if (-1 != recvBytes) {
 
-        }
-//
-        cmd.append(inputBuffer.data(), inputBuffer.size());        
-        
-        std::size_t pos = 0;
-        auto crlf = cmd.find(CR_LF);
+            if (0 == recvBytes) { continue; }
 
-        while (crlf != std::string::npos) {
-            cmdQueue.push(cmd.substr(pos, crlf));
+            auto beginIt = inputBuffer.cbegin();
+            auto endIt = inputBuffer.cbegin() + recvBytes;            
 
-            pos = crlf + strlen(CR_LF);       
-            crlf = cmd.find(std::string(CR_LF), pos);
+            auto crlfPos = std::search(beginIt, endIt, crlf.cbegin(), crlf.cend());
+            
+            while (crlfPos != endIt) {
+                cmdQueue.push(std::string(beginIt, (crlfPos - beginIt)));
+                beginIt = crlfPos + crlf.size();
 
-            if(crlf == std::string::npos) {
-                cmd = cmd.substr(pos, std::string::npos);
+                crlfPos = std::search(beginIt, endIt, crlf.begin(), crlf.end());
+            }                    
+
+            if(! cmdQueue.empty()) {
+                break;
             }
-        }        
-
-        if(! cmdQueue.empty()) {
-            break;
+        }else {
+            std::cerr << formErrnoString("recv returned -1:");
         }
     }
 }
-=============================================*/
+//=============================================
     
 void prompt(int sock) {
     static const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
