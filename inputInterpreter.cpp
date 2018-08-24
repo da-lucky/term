@@ -21,10 +21,19 @@ thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
 thread_local std::string cmdPart {};
 
+std::string assembleCmd(const char* s, std::size_t count) {
+
+    std::string c{};
+
+    if(! cmdPart.empty()) { 
+        c.swap(cmdPart);
+    }
+    return c.append(s, count);
+}
+
 void receiveCmd(int sock) {
     
-    std::string crlf {CR_LF};
-    auto retCode = 0;
+    const std::string crlf {CR_LF};
     
     while(true) {
 
@@ -32,25 +41,37 @@ void receiveCmd(int sock) {
         
         if (-1 != recvBytes) {
 
-            if (0 == recvBytes) { continue; }
-
             auto beginIt = inputBuffer.cbegin();
-            auto endIt = inputBuffer.cbegin() + recvBytes;            
-
+            auto endIt = beginIt + recvBytes;
+            
             auto crlfPos = std::search(beginIt, endIt, crlf.cbegin(), crlf.cend());
             
             while (crlfPos != endIt) {
-                cmdQueue.push(std::string(beginIt, (crlfPos - beginIt)));
-                beginIt = crlfPos + crlf.size();
-
+                auto cmdSize = std::distance(beginIt, crlfPos);                
+            
+                cmdQueue.push(assembleCmd(beginIt, cmdSize));
+            
+                std::advance(beginIt, (cmdSize + crlf.size()));
+            
                 crlfPos = std::search(beginIt, endIt, crlf.begin(), crlf.end());
-            }                    
+            }
+
+            if( (beginIt != endIt) ) {
+                cmdPart.append(beginIt, std::distance(beginIt, endIt));
+
+                auto crlfPos = cmdPart.find(crlf);
+                if(std::string::npos != crlfPos) {
+                    cmdQueue.push(cmdPart.substr(0, crlfPos));
+                    cmdPart.clear();
+                }
+            }
 
             if(! cmdQueue.empty()) {
                 break;
             }
-        }else {
+        } else {
             std::cerr << formErrnoString("recv returned -1:");
+            return; // TODO: check this!!!
         }
     }
 }
@@ -110,6 +131,8 @@ std::string processCmd(cmdPack& cp) {
 }
 
 namespace session {
+const std::string crlf {CR_LF};
+
 
 void handler(int sock, bool& isActiveFlag) {
 
@@ -118,30 +141,28 @@ void handler(int sock, bool& isActiveFlag) {
     prompt(sock);
 
     while(isActiveFlag) {
-//        receiveCmd(sock);
-        auto retCode = recv(sock, recvBuff.data(), recvBuff.size(), 0);
         
-        if(retCode != -1) {
+        receiveCmd(sock);
+        
+        while (! cmdQueue.empty()) {
 
-            auto cmd = handleInput(recvBuff, retCode);
+            std::string cmd = std::move(cmdQueue.front()); cmdQueue.pop();
+                    
+            std::string responseToSend{std::string("\tinput is: ") + cmd};
+            responseToSend.append(crlf);
 
-            std::string responseToSend = processCmd(cmd);
-
-            retCode = send(sock, responseToSend.c_str(), responseToSend.size(), 0);
-            if(retCode == -1) {
+            if(-1 == send(sock, responseToSend.c_str(), responseToSend.size(), 0)) {
                 std::cerr << formErrnoString("send returned -1:");
                 break;
             }
 
-            if(cmdCode::exit == cmd.code) {
+            if(! std::strcmp(exit_cmd, cmd.c_str())) {
+                isActiveFlag = false;
                 break;
-            }            
-        } else {
-            std::cerr << formErrnoString("recv returned -1:");
-            break;
-        }
+            }
 
-        prompt(sock);
+            prompt(sock);
+        }
     }
 
     isActiveFlag = false;
