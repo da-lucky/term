@@ -16,7 +16,8 @@ namespace {
 
 using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
 
-//=============== new =========================
+const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
+
 thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
 thread_local std::string cmdPart {};
@@ -33,8 +34,6 @@ std::string assembleCmd(const char* s, std::size_t count) {
 
 void receiveCmd(int sock) {
     
-    const std::string crlf {CR_LF};
-    
     while(true) {
 
         int recvBytes = recv(sock, inputBuffer.data(), inputBuffer.size(), 0);
@@ -44,22 +43,22 @@ void receiveCmd(int sock) {
             auto beginIt = inputBuffer.cbegin();
             auto endIt = beginIt + recvBytes;
             
-            auto crlfPos = std::search(beginIt, endIt, crlf.cbegin(), crlf.cend());
+            auto crlfPos = std::search(beginIt, endIt, CR_LF.cbegin(), CR_LF.cend());
             
             while (crlfPos != endIt) {
                 auto cmdSize = std::distance(beginIt, crlfPos);                
             
                 cmdQueue.push(assembleCmd(beginIt, cmdSize));
             
-                std::advance(beginIt, (cmdSize + crlf.size()));
+                std::advance(beginIt, (cmdSize + CR_LF.size()));
             
-                crlfPos = std::search(beginIt, endIt, crlf.begin(), crlf.end());
+                crlfPos = std::search(beginIt, endIt, CR_LF.begin(), CR_LF.end());
             }
 
             if( (beginIt != endIt) ) {
                 cmdPart.append(beginIt, std::distance(beginIt, endIt));
 
-                auto crlfPos = cmdPart.find(crlf);
+                auto crlfPos = cmdPart.find(CR_LF);
                 if(std::string::npos != crlfPos) {
                     cmdQueue.push(cmdPart.substr(0, crlfPos));
                     cmdPart.clear();
@@ -75,40 +74,38 @@ void receiveCmd(int sock) {
         }
     }
 }
-//=============================================
-    
-void prompt(int sock) {
-    static const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
+
+void sendResponse(int sock, const std::string& response) {
+    if(-1 == send(sock, response.c_str(), response.size(), 0)) {
+        std::cerr << formErrnoString("send returned -1:");
+    }
+}
+
+void prompt(int sock) {    
     send(sock, defaultPrompt.c_str(), defaultPrompt.size(),0);
 }
-    
-cmdPack defineCmd(InputBuffer_T& input) {
 
-    cmdPack cp {};  
-    std::string cmd {};
+   
+cmdPack defineCmd(const std::string& input) {
 
-    cp.args = input.data();
-    auto space = cp.args.find_first_of(' ');
+    cmdPack cp {};
     
-    cmd = (space != std::string::npos) ? cp.args.substr(0, space) : cp.args;
+    auto cmdStart = input.find_first_not_of(SPACE_TAB); // ignore starting spaces
 
-    auto it = cmdMap.find(cmd);
-    
-    cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
-    
-    return cp;
-}
+    if(std::string::npos == cmdStart) {
+        cp.code = cmdCode::enter;
+        cp.args = "";
+    } else {
+        auto cmdEnd = input.find_first_of(SPACE_TAB, cmdStart);
 
+        std::size_t count = (std::string::npos == cmdEnd) ? cmdEnd : (cmdEnd - cmdStart) ;
+        
+        auto it = cmdMap.find(input.substr(cmdStart, count));
 
-cmdPack handleInput(InputBuffer_T& input, std::size_t readBytes) {
-    
-    /* skip CR LF to define command correctly later */
-    if(readBytes > 1 &&
-       std::equal(&input[readBytes-2], &input[readBytes], &CR_LF[0])) {
-        input[readBytes-2] = '\0';
+        cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
+
+        cp.args = input.substr(cmdStart);
     }
-
-    cmdPack cp = defineCmd(input);
 
     return cp;
 }
@@ -131,13 +128,9 @@ std::string processCmd(cmdPack& cp) {
 }
 
 namespace session {
-const std::string crlf {CR_LF};
-
 
 void handler(int sock, bool& isActiveFlag) {
 
-    InputBuffer_T recvBuff;
-    
     prompt(sock);
 
     while(isActiveFlag) {
@@ -146,17 +139,15 @@ void handler(int sock, bool& isActiveFlag) {
         
         while (! cmdQueue.empty()) {
 
-            std::string cmd = std::move(cmdQueue.front()); cmdQueue.pop();
+            auto cmd_pack = defineCmd(std::move(cmdQueue.front()));
+
+            cmdQueue.pop();
                     
-            std::string responseToSend{std::string("\tinput is: ") + cmd};
-            responseToSend.append(crlf);
+            std::string responseToSend = processCmd(cmd_pack);
 
-            if(-1 == send(sock, responseToSend.c_str(), responseToSend.size(), 0)) {
-                std::cerr << formErrnoString("send returned -1:");
-                break;
-            }
+            sendResponse(sock, std::move(responseToSend));
 
-            if(! std::strcmp(exit_cmd, cmd.c_str())) {
+            if(cmdCode::exit == cmd_pack.code) {
                 isActiveFlag = false;
                 break;
             }

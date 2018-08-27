@@ -22,8 +22,10 @@ inline std::string formErrnoString(const char* s) {
     return ss.str();
 }
 
+const std::string SPACE_TAB{'\x20','\x09'};
 
-constexpr char CR_LF[] = {'\xd','\xa'};
+const std::string CR_LF{'\xd','\xa'};
+
 
 }
 
