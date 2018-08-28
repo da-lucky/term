@@ -8,7 +8,7 @@
 #include <unistd.h> 
 #include <signal.h> 
 #include "commonDefs.hpp"
-#include "inputInterpreter.hpp"
+#include "session.hpp"
 
 namespace term_app {
     session::SessionManager g_SMgr {};

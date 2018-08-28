@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <queue>
 #include "commonDefs.hpp"
-#include "inputInterpreter.hpp"
+#include "session.hpp"
 #include "commands.hpp"
 
 
@@ -94,7 +94,7 @@ cmdPack defineCmd(const std::string& input) {
     auto cmdStart = input.find_first_not_of(SPACE_TAB); // ignore starting spaces
 
     if(std::string::npos == cmdStart) {
-        cp.code = cmdCode::enter;
+        cp.code = cmdCode::empty_input;
         cp.args = "";
     } else {
         auto cmdEnd = input.find_first_of(SPACE_TAB, cmdStart);
@@ -132,7 +132,7 @@ namespace session {
 
 void handler(int sock, bool& isActiveFlag) {
     
-    session_socket = sock;
+    session_socket = sock; // init thread local variable for socket
 
     prompt();
 

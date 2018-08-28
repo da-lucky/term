@@ -2,7 +2,7 @@
 #define help_h
 
 using namespace term_app;
-std::string processEnter(std::string& arg) {
+std::string processEmptyInput(std::string& arg) {
 
     return std::string {};
 };
