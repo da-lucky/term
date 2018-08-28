@@ -13,8 +13,11 @@
 using namespace term_app;
 
 namespace {
+/*---------------------------- types definitions ---------------------------------------------------------------------*/
 
 using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
+
+/*---------------------------- variables definitions -----------------------------------------------------------------*/
 
 const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
 
@@ -22,6 +25,8 @@ thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
 thread_local std::string cmdPart {};
 thread_local int session_socket {};
+
+/*---------------------------- functions definitions -----------------------------------------------------------------*/
 
 std::string assembleCmd(const char* s, std::size_t count) {
 
@@ -44,6 +49,7 @@ void receiveCmd() {
             auto beginIt = inputBuffer.cbegin();
             auto endIt = beginIt + recvBytes;
             
+            // find end of the input command marked with CR LF
             auto crlfPos = std::search(beginIt, endIt, CR_LF.cbegin(), CR_LF.cend());
             
             while (crlfPos != endIt) {
@@ -111,7 +117,7 @@ cmdPack defineCmd(const std::string& input) {
     return cp;
 }
 
-std::string processCmd(cmdPack& cp) {
+std::string processCmd(const cmdPack& cp) {
 
     auto mapIt = fCbMap.find(cp.code);
 

@@ -7,6 +7,20 @@
 
 namespace term_app {
 
+enum class cmdCode;
+
+struct cmdPack {
+    cmdCode code;
+    std::string args;
+};
+
+using callback = std::function<std::string(const std::string&)>;
+
+struct funcCbDescriptor {
+    const char* name;
+    callback cb;
+};
+
 constexpr char empty_cmd[] = "";
 
 constexpr char help_cmd[] = "help";
@@ -34,24 +48,6 @@ const std::map<std::string, cmdCode> cmdMap {
     {cmd2_cmd , cmdCode::cmd2},
     {exit_cmd , cmdCode::exit},
     {quit_cmd , cmdCode::quit}
-};
-
-struct cmdPack {
-    cmdCode code;
-    std::string args;
-};
-
-enum class retCode{
-    OK,
-    NOK,
-    EXIT,
-};
-
-using callback = std::function<std::string(std::string&)>;
-
-struct funcCbDescriptor {
-    const char* name;
-    callback cb;
 };
 
 const std::map<cmdCode, funcCbDescriptor> fCbMap {

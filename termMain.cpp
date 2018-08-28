@@ -5,10 +5,25 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <arpa/inet.h>
 #include <unistd.h> 
 #include <signal.h> 
 #include "commonDefs.hpp"
 #include "session.hpp"
+
+namespace {
+
+std::string convertIPtoStr(uint32_t ip) {
+    char ip_str[16];
+
+    if(! inet_ntop(AF_INET, &ip, ip_str, sizeof(ip_str))) {
+        std::cerr << term_app::formErrnoString("failed to convert IP to string::") << "\n";
+        ip_str[0] = '\0';
+    }
+    return std::string {ip_str};    
+}
+
+};
 
 namespace term_app {
     session::SessionManager g_SMgr {};
@@ -50,7 +65,7 @@ void launchServer() {
             continue;
         }
 
-        std::cout << "connection established from " << s_in.sin_addr.s_addr << "\n";
+        std::cout << "connection established from " << convertIPtoStr(s_in.sin_addr.s_addr) << "\n";
 
         if( g_SMgr.enableSession(new_sock) != session::SessionStatus::OK ) {
             close(new_sock);
