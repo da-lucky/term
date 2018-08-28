@@ -21,6 +21,7 @@ const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
 thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
 thread_local std::string cmdPart {};
+thread_local int session_socket {};
 
 std::string assembleCmd(const char* s, std::size_t count) {
 
@@ -32,11 +33,11 @@ std::string assembleCmd(const char* s, std::size_t count) {
     return c.append(s, count);
 }
 
-void receiveCmd(int sock) {
+void receiveCmd() {
     
     while(true) {
 
-        int recvBytes = recv(sock, inputBuffer.data(), inputBuffer.size(), 0);
+        int recvBytes = recv(session_socket, inputBuffer.data(), inputBuffer.size(), 0);
         
         if (-1 != recvBytes) {
 
@@ -75,14 +76,14 @@ void receiveCmd(int sock) {
     }
 }
 
-void sendResponse(int sock, const std::string& response) {
-    if(-1 == send(sock, response.c_str(), response.size(), 0)) {
+void sendResponse(const std::string& response) {
+    if(-1 == send(session_socket, response.c_str(), response.size(), 0)) {
         std::cerr << formErrnoString("send returned -1:");
     }
 }
 
-void prompt(int sock) {    
-    send(sock, defaultPrompt.c_str(), defaultPrompt.size(),0);
+void prompt() {    
+    send(session_socket, defaultPrompt.c_str(), defaultPrompt.size(),0);
 }
 
    
@@ -130,12 +131,14 @@ std::string processCmd(cmdPack& cp) {
 namespace session {
 
 void handler(int sock, bool& isActiveFlag) {
+    
+    session_socket = sock;
 
-    prompt(sock);
+    prompt();
 
     while(isActiveFlag) {
         
-        receiveCmd(sock);
+        receiveCmd();
         
         while (! cmdQueue.empty()) {
 
@@ -145,19 +148,19 @@ void handler(int sock, bool& isActiveFlag) {
                     
             std::string responseToSend = processCmd(cmd_pack);
 
-            sendResponse(sock, std::move(responseToSend));
+            sendResponse(std::move(responseToSend));
 
             if(cmdCode::exit == cmd_pack.code) {
                 isActiveFlag = false;
                 break;
             }
 
-            prompt(sock);
+            prompt();
         }
     }
 
     isActiveFlag = false;
-    close(sock);
+    close(session_socket);
     return;    
 }
 
