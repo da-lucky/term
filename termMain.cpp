@@ -9,7 +9,7 @@
 #include <unistd.h> 
 #include <signal.h> 
 #include "commonDefs.hpp"
-#include "session.hpp"
+#include "SessionManager.hpp"
 
 namespace {
 
@@ -26,8 +26,7 @@ std::string convertIPtoStr(uint32_t ip) {
 };
 
 namespace term_app {
-    session::SessionManager g_SMgr {};
-
+    
 void launchServer() {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -67,7 +66,7 @@ void launchServer() {
 
         std::cout << "connection established from " << convertIPtoStr(s_in.sin_addr.s_addr) << "\n";
 
-        if( g_SMgr.enableSession(new_sock) != session::SessionStatus::OK ) {
+        if( startSession(new_sock) != session::SessionStatus::OK ) {
             close(new_sock);
         }
     }
@@ -79,6 +78,7 @@ void launchServer() {
 int main(int argc, char* argv[]) {
 
     try {
+        //term_app::initSessionMngr();
         term_app::launchServer();        
 
     } catch (std::exception& e) {
