@@ -26,6 +26,8 @@ thread_local InputBuffer_T inputBuffer {};
 thread_local std::string cmdPart {};
 thread_local int session_socket {};
 
+thread_local std::string CTRLcmdPart {};
+
 /*---------------------------- functions definitions -----------------------------------------------------------------*/
 
 std::string assembleCmd(const char* s, std::size_t count) {
@@ -81,6 +83,84 @@ void receiveCmd() {
         }
     }
 }
+
+void receiveCmd_CTRL() {
+    while (true) {
+
+        const int recvBytes = recv(session_socket, inputBuffer.data(), inputBuffer.size(), 0);
+
+        if(-1 != recvBytes) {            
+            
+            auto beginIt = inputBuffer.cbegin();
+            auto endIt = beginIt + recvBytes;
+
+            while(beginIt != endIt) {
+                // telnet control commands obtaining
+                if( ! CTRLcmdPart.empty() ) {
+
+                    auto partLen = CTRLcmdPart.size();
+                    std::size_t dist = std::distance(beginIt, endIt);
+
+                    CTRLcmdPart.append(beginIt, std::min((CTRL_CMD_SIZE - partLen), dist));
+
+                    std::advance(beginIt, std::min((CTRL_CMD_SIZE - partLen), dist));
+
+                    if(CTRLcmdPart.size() == CTRL_CMD_SIZE) {
+                        cmdQueue.push(CTRLcmdPart);
+                        CTRLcmdPart.clear();
+                    }
+                    break;
+                }
+                if( IAC == *beginIt ) { // IAC symbol
+                    if (std::distance(beginIt, endIt) < CTRL_CMD_SIZE) {
+
+                        CTRLcmdPart.append(beginIt, std::distance(beginIt, endIt));
+
+                        std::advance(beginIt, std::distance(beginIt, endIt));
+                        
+                    } else {
+                        cmdQueue.push(std::string(beginIt, CTRL_CMD_SIZE));
+
+                        std::advance(beginIt, CTRL_CMD_SIZE);                       
+                    }
+                } else {
+                    // user input obtaining
+                    // find end of the input command marked with CR LF
+                    auto crlfPos = std::search(beginIt, endIt, CR_LF.cbegin(), CR_LF.cend());
+
+                    if (crlfPos != endIt) {
+                        auto cmdSize = std::distance(beginIt, crlfPos);                
+                    
+                        cmdQueue.push(assembleCmd(beginIt, cmdSize));
+                    
+                        std::advance(beginIt, (cmdSize + CR_LF.size()));
+
+                        continue;
+                    } else {
+                        cmdPart.append(beginIt, std::distance(beginIt, endIt));
+                        std::advance(beginIt, std::distance(beginIt, endIt));
+                        
+                        auto crlfPos = cmdPart.find(CR_LF);
+                        
+                        if(std::string::npos != crlfPos) {
+                            cmdQueue.push(cmdPart.substr(0, crlfPos));
+                            cmdPart.clear();
+                        }
+                    }
+                }
+           }
+
+            if(! cmdQueue.empty()) {
+                break;
+            }
+
+        } else {
+            std::cerr << formErrnoString("recv returned -1:");
+            return; // TODO: check this!!!            
+        }
+    }
+}
+
 
 void sendResponse(const std::string& response) {
     if(-1 == send(session_socket, response.c_str(), response.size(), 0)) {
@@ -144,7 +224,7 @@ void handler(int sock, bool& isActiveFlag) {
 
     while(isActiveFlag) {
         
-        receiveCmd();
+        receiveCmd_CTRL();
         
         while (! cmdQueue.empty()) {
 
@@ -159,10 +239,9 @@ void handler(int sock, bool& isActiveFlag) {
             if(cmdCode::exit == cmd_pack.code) {
                 isActiveFlag = false;
                 break;
-            }
-
-            prompt();
+            }            
         }
+        prompt();
     }
 
     isActiveFlag = false;

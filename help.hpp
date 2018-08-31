@@ -41,6 +41,11 @@ std::string processQuit(const std::string& arg) {
 std::string processFailure(const std::string& arg) {
     std::string replyToSend {"Unknown command:"};
 
+    if(IAC == *arg.begin()) {
+        for(auto c:arg) {
+            replyToSend.append(std::to_string(static_cast<uint8_t>(c))); replyToSend.push_back(' ');
+        }
+    }
     return replyToSend.append(arg);
 };
 
