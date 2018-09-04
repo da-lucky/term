@@ -9,6 +9,7 @@
 #include "session.hpp"
 #include "commands.hpp"
 
+#include <sstream>
 
 using namespace term_app;
 
@@ -29,48 +30,78 @@ thread_local int session_socket {};
 thread_local std::string CTRLcmdPart {};
 
 /*---------------------------- functions definitions -----------------------------------------------------------------*/
+std::string copyToStringAndAdvance(const char* &it, std::size_t dist) {
+    std::string s{it, dist};
+    std::advance(it, dist);
+    return s;
+}
 
-std::string assembleCmd(const char* s, std::size_t count) {
+std::string assembleCmd(const std::string& s) {
 
     std::string c{};
 
     if(! cmdPart.empty()) { 
         c.swap(cmdPart);
     }
-    return c.append(s, count);
+    return c.append(s);
 }
 
-void receiveCmd() {
+void receiveCmd_streambuf() {
+
+    std::string tmp;
+    tmp.reserve(CTRL_CMD_SIZE);
+
+    std::string tmp_inp;
+    tmp_inp.reserve(MAX_BUF_SIZE);
     
-    while(true) {
+    while (true) {
 
-        int recvBytes = recv(session_socket, inputBuffer.data(), inputBuffer.size(), 0);
-        
-        if (-1 != recvBytes) {
+        const int recvBytes = recv(session_socket, inputBuffer.data(), inputBuffer.size(), 0); std::cout << "recv " << recvBytes << " bytes\n";
 
-            auto beginIt = inputBuffer.cbegin();
-            auto endIt = beginIt + recvBytes;
-            
-            // find end of the input command marked with CR LF
-            auto crlfPos = std::search(beginIt, endIt, CR_LF.cbegin(), CR_LF.cend());
-            
-            while (crlfPos != endIt) {
-                auto cmdSize = std::distance(beginIt, crlfPos);                
-            
-                cmdQueue.push(assembleCmd(beginIt, cmdSize));
-            
-                std::advance(beginIt, (cmdSize + CR_LF.size()));
-            
-                crlfPos = std::search(beginIt, endIt, CR_LF.begin(), CR_LF.end());
-            }
+        if(-1 != recvBytes) {
 
-            if( (beginIt != endIt) ) {
-                cmdPart.append(beginIt, std::distance(beginIt, endIt));
+            std::stringstream ss;
+            ss.rdbuf()->pubsetbuf(inputBuffer.data(), inputBuffer.size());    std::cout << "ss " << ss.str() << "\n";
 
-                auto crlfPos = cmdPart.find(CR_LF);
-                if(std::string::npos != crlfPos) {
-                    cmdQueue.push(cmdPart.substr(0, crlfPos));
-                    cmdPart.clear();
+            while(! ss.eof()) {
+   
+                if( ! CTRLcmdPart.empty() ) {
+                    ss.readsome(&tmp[0], CTRL_CMD_SIZE);
+
+                    CTRLcmdPart.append(tmp);
+
+                    if(tmp.size() == CTRL_CMD_SIZE) {
+                        cmdQueue.push(tmp);
+                        tmp.clear();
+                    }
+                }                
+                if(IAC == ss.get()) {
+std::cout << "IAC aval " << ss.rdbuf()->in_avail() << "\n";
+                    ss.readsome(&tmp[0], CTRL_CMD_SIZE);
+
+                    if( ss.rdbuf()->in_avail() < CTRL_CMD_SIZE ) {                        
+                        CTRLcmdPart.append(tmp);
+                    } else {
+                        cmdQueue.push(tmp);
+                        tmp.clear();
+                    }
+                } else {
+                    std::getline(ss, tmp_inp);
+std::cout << "input " << tmp_inp << " size " << tmp_inp.size() << " aval " << ss.rdbuf()->in_avail() << "\n";
+                    if(! ss.eof() ) {
+                        if (! tmp_inp.empty() ) {
+                            tmp_inp.pop_back();    // remove 'CR' symbol
+                        }
+                        cmdQueue.push(tmp_inp);
+                    } else {
+                        cmdPart.append(tmp_inp);
+                        if (tmp_inp.empty()) {
+                            cmdQueue.push(cmdPart);
+                            cmdPart.clear();
+                        }
+                    }
+
+                    tmp_inp.clear();
                 }
             }
 
@@ -79,7 +110,7 @@ void receiveCmd() {
             }
         } else {
             std::cerr << formErrnoString("recv returned -1:");
-            return; // TODO: check this!!!
+            return; // TODO: check this!!!  
         }
     }
 }
@@ -101,9 +132,7 @@ void receiveCmd_CTRL() {
                     auto partLen = CTRLcmdPart.size();
                     std::size_t dist = std::distance(beginIt, endIt);
 
-                    CTRLcmdPart.append(beginIt, std::min((CTRL_CMD_SIZE - partLen), dist));
-
-                    std::advance(beginIt, std::min((CTRL_CMD_SIZE - partLen), dist));
+                    CTRLcmdPart.append(copyToStringAndAdvance(beginIt, std::min((CTRL_CMD_SIZE - partLen), dist)));                    
 
                     if(CTRLcmdPart.size() == CTRL_CMD_SIZE) {
                         cmdQueue.push(CTRLcmdPart);
@@ -111,17 +140,13 @@ void receiveCmd_CTRL() {
                     }
                     break;
                 }
-                if( IAC == *beginIt ) { // IAC symbol
+                if( IAC == *beginIt ) {
                     if (std::distance(beginIt, endIt) < CTRL_CMD_SIZE) {
 
-                        CTRLcmdPart.append(beginIt, std::distance(beginIt, endIt));
-
-                        std::advance(beginIt, std::distance(beginIt, endIt));
+                        CTRLcmdPart.append(copyToStringAndAdvance(beginIt, std::distance(beginIt, endIt)));
                         
                     } else {
-                        cmdQueue.push(std::string(beginIt, CTRL_CMD_SIZE));
-
-                        std::advance(beginIt, CTRL_CMD_SIZE);                       
+                        cmdQueue.push(copyToStringAndAdvance(beginIt, CTRL_CMD_SIZE));                                              
                     }
                 } else {
                     // user input obtaining
@@ -129,16 +154,14 @@ void receiveCmd_CTRL() {
                     auto crlfPos = std::search(beginIt, endIt, CR_LF.cbegin(), CR_LF.cend());
 
                     if (crlfPos != endIt) {
-                        auto cmdSize = std::distance(beginIt, crlfPos);                
                     
-                        cmdQueue.push(assembleCmd(beginIt, cmdSize));
+                        cmdQueue.push(assembleCmd(copyToStringAndAdvance(beginIt, std::distance(beginIt, crlfPos))));
                     
-                        std::advance(beginIt, (cmdSize + CR_LF.size()));
+                        std::advance(beginIt, CR_LF.size());
 
                         continue;
                     } else {
-                        cmdPart.append(beginIt, std::distance(beginIt, endIt));
-                        std::advance(beginIt, std::distance(beginIt, endIt));
+                        cmdPart.append(copyToStringAndAdvance(beginIt, std::distance(beginIt, endIt)));
                         
                         auto crlfPos = cmdPart.find(CR_LF);
                         
@@ -224,7 +247,7 @@ void handler(int sock, bool& isActiveFlag) {
 
     while(isActiveFlag) {
         
-        receiveCmd_CTRL();
+        receiveCmd_streambuf();
         
         while (! cmdQueue.empty()) {
 
