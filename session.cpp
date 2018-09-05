@@ -46,64 +46,77 @@ std::string assembleCmd(const std::string& s) {
     return c.append(s);
 }
 
+void tmp(const std::string& s) {for(auto c: s) {std::cout<< std::to_string(static_cast<uint8_t>(c)) << " "; }}
+
 void receiveCmd_streambuf() {
 
-    std::string tmp;
-    tmp.reserve(CTRL_CMD_SIZE);
-
+    std::array<char, CTRL_CMD_SIZE> tmp_ctrl;
     std::string tmp_inp;
     tmp_inp.reserve(MAX_BUF_SIZE);
     
     while (true) {
 
-        const int recvBytes = recv(session_socket, inputBuffer.data(), inputBuffer.size(), 0); std::cout << "recv " << recvBytes << " bytes\n";
+        const int recvBytes = recv(session_socket, inputBuffer.data(), inputBuffer.size(), 0);        
 
         if(-1 != recvBytes) {
 
+            tmp_inp.clear();
+
             std::stringstream ss;
-            ss.rdbuf()->pubsetbuf(inputBuffer.data(), inputBuffer.size());    std::cout << "ss " << ss.str() << "\n";
+            ss.rdbuf()->pubsetbuf(inputBuffer.data(), recvBytes);
 
-            while(! ss.eof()) {
-   
-                if( ! CTRLcmdPart.empty() ) {
-                    ss.readsome(&tmp[0], CTRL_CMD_SIZE);
+            while(ss.rdbuf()->in_avail()) {
 
-                    CTRLcmdPart.append(tmp);
+                if(! CTRLcmdPart.empty()) {
+                    
+                    auto b = ss.readsome(tmp_ctrl.begin(), CTRL_CMD_SIZE - CTRLcmdPart.size());
 
-                    if(tmp.size() == CTRL_CMD_SIZE) {
-                        cmdQueue.push(tmp);
-                        tmp.clear();
+                    CTRLcmdPart.append(tmp_ctrl.begin(), b);
+
+                    if(CTRLcmdPart.size() == CTRL_CMD_SIZE) {
+                        cmdQueue.push(CTRLcmdPart);
+                        CTRLcmdPart.clear();                        
                     }
-                }                
-                if(IAC == ss.get()) {
-std::cout << "IAC aval " << ss.rdbuf()->in_avail() << "\n";
-                    ss.readsome(&tmp[0], CTRL_CMD_SIZE);
+                    continue;
+                }   
 
-                    if( ss.rdbuf()->in_avail() < CTRL_CMD_SIZE ) {                        
-                        CTRLcmdPart.append(tmp);
+                char symbol = ss.get();
+                if(IAC == symbol) {
+
+                    tmp_ctrl[0] = symbol;
+
+                    auto b = ss.readsome(&tmp_ctrl[1], CTRL_CMD_SIZE - 1) + 1;
+
+                    if(b < CTRL_CMD_SIZE) {
+                        CTRLcmdPart.append(tmp_ctrl.begin(), b);
                     } else {
-                        cmdQueue.push(tmp);
-                        tmp.clear();
-                    }
+                        cmdQueue.emplace(tmp_ctrl.begin(), b);
+                    }                    
                 } else {
-                    std::getline(ss, tmp_inp);
-std::cout << "input " << tmp_inp << " size " << tmp_inp.size() << " aval " << ss.rdbuf()->in_avail() << "\n";
-                    if(! ss.eof() ) {
-                        if (! tmp_inp.empty() ) {
-                            tmp_inp.pop_back();    // remove 'CR' symbol
-                        }
-                        cmdQueue.push(tmp_inp);
+                    if('\x0a' == symbol || '\x00' == symbol) {
+                        break;
+                    } else if('\x0d' == symbol) {
+                        cmdQueue.push(cmdPart); 
+                        cmdPart.clear(); 
                     } else {
-                        cmdPart.append(tmp_inp);
-                        if (tmp_inp.empty()) {
-                            cmdQueue.push(cmdPart);
+                        cmdPart.append(1, symbol);  
+                    }
+
+                    while(! ss.eof()) {
+    
+                        std::getline(ss, tmp_inp);
+                        if(ss.eof()) {
+                            cmdPart.append(tmp_inp);
+                            tmp_inp.clear();
+                        }
+                        if(! tmp_inp.empty()) {
+                            tmp_inp.pop_back();
+                            cmdQueue.push(tmp_inp); 
                             cmdPart.clear();
                         }
                     }
-
-                    tmp_inp.clear();
                 }
-            }
+            } 
 
             if(! cmdQueue.empty()) {
                 break;
@@ -242,6 +255,7 @@ namespace session {
 void handler(int sock, bool& isActiveFlag) {
     
     session_socket = sock; // init thread local variable for socket
+    CTRLcmdPart.reserve(CTRL_CMD_SIZE);
 
     prompt();
 
