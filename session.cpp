@@ -20,7 +20,7 @@ using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
 
 /*---------------------------- variables definitions -----------------------------------------------------------------*/
 
-const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
+const std::string defaultPrompt(std::string("\n") + std::string(APP_NAME) + std::string(":"));
 
 thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
@@ -30,24 +30,6 @@ thread_local int session_socket {};
 thread_local std::string CTRLcmdPart {};
 
 /*---------------------------- functions definitions -----------------------------------------------------------------*/
-std::string copyToStringAndAdvance(const char* &it, std::size_t dist) {
-    std::string s{it, dist};
-    std::advance(it, dist);
-    return s;
-}
-
-std::string assembleCmd(const std::string& s) {
-
-    std::string c{};
-
-    if(! cmdPart.empty()) { 
-        c.swap(cmdPart);
-    }
-    return c.append(s);
-}
-
-void tmp(const std::string& s) {for(auto c: s) {std::cout<< std::to_string(static_cast<uint8_t>(c)) << " "; }}
-
 void receiveCmd_streambuf() {
 
     std::array<char, CTRL_CMD_SIZE> tmp_ctrl;
@@ -127,6 +109,22 @@ void receiveCmd_streambuf() {
         }
     }
 }
+#if 0
+std::string copyToStringAndAdvance(const char* &it, std::size_t dist) {
+    std::string s{it, dist};
+    std::advance(it, dist);
+    return s;
+}
+
+std::string assembleCmd(const std::string& s) {
+
+    std::string c{};
+
+    if(! cmdPart.empty()) { 
+        c.swap(cmdPart);
+    }
+    return c.append(s);
+}
 
 void receiveCmd_CTRL() {
     while (true) {
@@ -196,7 +194,7 @@ void receiveCmd_CTRL() {
         }
     }
 }
-
+#endif
 
 void sendResponse(const std::string& response) {
     if(-1 == send(session_socket, response.c_str(), response.size(), 0)) {
