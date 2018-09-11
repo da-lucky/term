@@ -44,14 +44,10 @@ void handleSymbol(char symbol) {
         default: {
             USERcmdPart.push_back(symbol);
 
-            if(ASCII::ESC == USERcmdPart.front()) {
-                if (3 == USERcmdPart.size()) {
-                    send(session_socket, MOVEMENT_ESCAPE_SEQ::BW_FW.data(), MOVEMENT_ESCAPE_SEQ::BW_FW.size(), 0);        // not handle these sequences so far
-                }
-            } else {            
+            if(USERcmdPart.find(ASCII::ESC) == std::string::npos) {
                 std::string echo = std::string(1,symbol) + MOVEMENT_ESCAPE_SEQ::BW_FW;
                 send(session_socket, echo.data(), echo.size(), 0);
-            }
+            } 
             break;
         }
     }
@@ -97,7 +93,7 @@ void readInput() {
                         send(session_socket, ASCII::CR_LF.data(), ASCII::CR_LF.size(), 0);
                         continue;
                     }
-                    if(ASCII::LF == symbol || '\00' == symbol) { continue; }
+                    if(ASCII::LF == symbol || ASCII::NUL == symbol) { continue; }
 
                     handleSymbol(symbol);
 
@@ -105,8 +101,11 @@ void readInput() {
                         USERcmdPart.clear();
                         std::cerr << "not allowed command length... skip it... MAX allowed " << MAX_USER_CMD_SIZE << "\n";
                         continue;
-                    } else if(ASCII::ESC == USERcmdPart.front() && 3 == USERcmdPart.size() ) {
-                        USERcmdPart.clear();
+                    } 
+
+                    auto i = USERcmdPart.find(ASCII::ESC);
+                    if((std::string::npos != i) && ((USERcmdPart.size() - i) > 2)) {
+                        USERcmdPart.erase(i, 3);
                     }
                 }
             }

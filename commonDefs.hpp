@@ -28,6 +28,7 @@ inline std::string formErrnoString(const char* s) {
 }
 
 namespace ASCII {
+    constexpr char NUL {'\x00'};
     constexpr char ESC {'\x1b'};
     constexpr char CR {'\x0d'};
     constexpr char LF {'\x0a'};
