@@ -7,22 +7,6 @@ using namespace term_app;
 using namespace TELNET::CMD_CODE;
 using namespace TELNET::OPTS_CODE;
 
-std::string processIAC(const std::string& arg) {
-
-    std::string replyToSend {};
-
-    if(arg == TELNET::DO_SGA) {
-        replyToSend = TELNET::WILL_ECHO;
-    }
-
-    if(arg == TELNET::DO_ECHO) {
-//        replyToSend = {IAC, WILL, NAWS};
-    }
-
-    return replyToSend;
-};
-
-
 std::string processEmptyInput(const std::string& arg) {
 
     return std::string {};

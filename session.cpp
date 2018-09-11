@@ -8,6 +8,7 @@
 #include "commonDefs.hpp"
 #include "session.hpp"
 #include "commands.hpp"
+#include "telnetCtrlCommands.hpp"
 
 #include <sstream>
 
@@ -142,28 +143,24 @@ void setenv() {
 cmdPack defineCmd(const std::string& input) {
 
     cmdPack cp {};
+  
+    auto cmdStart = input.find_first_not_of(ASCII::SPACE_TAB); // ignore starting spaces
 
-    if (TELNET::CMD_CODE::IAC == input.front()) {
-        cp.code = cmdCode::iac;
-        cp.args = input;
-    } else {    
-        auto cmdStart = input.find_first_not_of(ASCII::SPACE_TAB); // ignore starting spaces
+    if(std::string::npos == cmdStart) {
+        cp.code = cmdCode::empty_input;
+        cp.args = "";
+    } else {
+        auto cmdEnd = input.find_first_of(ASCII::SPACE_TAB, cmdStart);
 
-        if(std::string::npos == cmdStart) {
-            cp.code = cmdCode::empty_input;
-            cp.args = "";
-        } else {
-            auto cmdEnd = input.find_first_of(ASCII::SPACE_TAB, cmdStart);
+        std::size_t count = (std::string::npos == cmdEnd) ? cmdEnd : (cmdEnd - cmdStart) ;
+        
+        auto it = cmdMap.find(input.substr(cmdStart, count));
 
-            std::size_t count = (std::string::npos == cmdEnd) ? cmdEnd : (cmdEnd - cmdStart) ;
-            
-            auto it = cmdMap.find(input.substr(cmdStart, count));
+        cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
 
-            cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
-
-            cp.args = input.substr(cmdStart);
-        }
+        cp.args = input.substr(cmdStart);
     }
+
     return cp;
 }
 
@@ -198,23 +195,38 @@ void handler(int sock, bool& isActiveFlag) {
     while(isActiveFlag) {
         
         readInput();
+    
+        bool userCmdHandled = true;
         
+
         while (! cmdQueue.empty()) {
 
-            auto cmd_pack = defineCmd(std::move(cmdQueue.front()));
-
+            const std::string cmd = std::move(cmdQueue.front());
             cmdQueue.pop();
-                    
-            std::string responseToSend = processCmd(cmd_pack);
 
-            sendResponse(std::move(responseToSend));
+            std::string responseToSend {};
 
-            if(cmdCode::exit == cmd_pack.code) {
-                isActiveFlag = false;
-                break;
+            if(TELNET::CMD_CODE::IAC == cmd.front()) {
+                responseToSend = processIAC(cmd);
+                userCmdHandled = false;
+            } else {
+                auto cmd_pack = defineCmd(cmd);            
+                   
+                responseToSend = processCmd(cmd_pack);                
+
+                userCmdHandled = true;
+
+                if(cmdCode::exit == cmd_pack.code) {
+                    isActiveFlag = false;
+                    break;
+                }
             }
-        } 
-        prompt();
+            sendResponse(std::move(responseToSend));
+        }      
+
+        if(isActiveFlag && userCmdHandled) {
+            prompt();
+        }
     }
 
     isActiveFlag = false;
