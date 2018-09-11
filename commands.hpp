@@ -21,8 +21,8 @@ struct funcCbDescriptor {
     callback cb;
 };
 
+constexpr char IAC_cmd[] = "IAC";
 constexpr char empty_cmd[] = "";
-
 constexpr char help_cmd[] = "help";
 constexpr char cmd1_cmd[] = "cmd1";
 constexpr char cmd2_cmd[] = "cmd2";
@@ -30,6 +30,7 @@ constexpr char exit_cmd[] = "exit";
 constexpr char quit_cmd[] = "quit";
 
 enum class cmdCode {
+    iac,
     empty_input,
     help,
     cmd1,
@@ -41,6 +42,7 @@ enum class cmdCode {
 };
 
 const std::map<std::string, cmdCode> cmdMap {
+    {IAC_cmd , cmdCode::iac},
     {empty_cmd , cmdCode::empty_input},
 
     {help_cmd , cmdCode::help},
@@ -51,7 +53,9 @@ const std::map<std::string, cmdCode> cmdMap {
 };
 
 const std::map<cmdCode, funcCbDescriptor> fCbMap {
+    {cmdCode::iac, {IAC_cmd, processIAC}},
     {cmdCode::empty_input, {empty_cmd, processEmptyInput}},
+
     {cmdCode::help, {help_cmd, processHelp}},
     {cmdCode::cmd1, {cmd1_cmd, processCmd1}},
     {cmdCode::cmd2, {cmd2_cmd, processCmd2}},

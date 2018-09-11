@@ -20,7 +20,7 @@ using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
 
 /*---------------------------- variables definitions -----------------------------------------------------------------*/
 
-const std::string defaultPrompt(std::string("\n") + std::string(APP_NAME) + std::string(":"));
+const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
 
 thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
@@ -32,15 +32,26 @@ thread_local std::string CTRLcmdPart {};
 /*---------------------------- functions definitions -----------------------------------------------------------------*/
 void handleSymbol(char symbol) {
     switch (symbol) {
-        case '\x7f' : {
-            std::cout << "BS\n";
+        case ASCII::DEL : {
             if(! USERcmdPart.empty()) {
                 USERcmdPart.pop_back();
+                send(session_socket, MOVEMENT_ESCAPE_SEQ::BW_ERASE.data(), MOVEMENT_ESCAPE_SEQ::BW_ERASE.size(), 0);
             }
+
             break;
         }
+
         default: {
             USERcmdPart.push_back(symbol);
+
+            if(ASCII::ESC == USERcmdPart.front()) {
+                if (3 == USERcmdPart.size()) {
+                    send(session_socket, MOVEMENT_ESCAPE_SEQ::BW_FW.data(), MOVEMENT_ESCAPE_SEQ::BW_FW.size(), 0);        // not handle these sequences so far
+                }
+            } else {            
+                std::string echo = std::string(1,symbol) + MOVEMENT_ESCAPE_SEQ::BW_FW;
+                send(session_socket, echo.data(), echo.size(), 0);
+            }
             break;
         }
     }
@@ -63,23 +74,30 @@ void readInput() {
                 if(! CTRLcmdPart.empty()) {
                     CTRLcmdPart.push_back(ss.get());
 
-                    if(CTRL_CMD_SIZE == CTRLcmdPart.size()) {
+                    if(TELNET::CMD_CODE::SB == CTRLcmdPart[1]) {
+                        if (TELNET::CMD_CODE::SE == CTRLcmdPart.back()) {
+                            cmdQueue.emplace(CTRLcmdPart);
+                            CTRLcmdPart.clear();
+                        }
+                    } else if (CTRL_CMD_SIZE == CTRLcmdPart.size()) {
                         cmdQueue.emplace(CTRLcmdPart);
                         CTRLcmdPart.clear();
                     }
                     continue;
                 }
 
-                char symbol = ss.get();                
-                if(IAC == symbol) {
+                char symbol = ss.get();
+
+                if(TELNET::CMD_CODE::IAC == symbol) {
                     CTRLcmdPart.push_back(symbol);
-                } else {                                        
-                    if(CR == symbol) {
+                } else {
+                    if(ASCII::CR == symbol) {
                         cmdQueue.emplace(USERcmdPart);
                         USERcmdPart.clear();
+                        send(session_socket, ASCII::CR_LF.data(), ASCII::CR_LF.size(), 0);
                         continue;
                     }
-                    if(LF == symbol || '\00' == symbol) { continue; }
+                    if(ASCII::LF == symbol || '\00' == symbol) { continue; }
 
                     handleSymbol(symbol);
 
@@ -87,6 +105,8 @@ void readInput() {
                         USERcmdPart.clear();
                         std::cerr << "not allowed command length... skip it... MAX allowed " << MAX_USER_CMD_SIZE << "\n";
                         continue;
+                    } else if(ASCII::ESC == USERcmdPart.front() && 3 == USERcmdPart.size() ) {
+                        USERcmdPart.clear();
                     }
                 }
             }
@@ -111,40 +131,36 @@ void prompt() {
     send(session_socket, defaultPrompt.c_str(), defaultPrompt.size(),0);
 }
 
-void setenv() {
-    constexpr char e1[] = {'\xff','\xfb','\x03'}; // set char mode
-    send(session_socket, e1, sizeof(e1), 0);
-
-    constexpr char e2[] = {'\xff','\xfb','\x01'}; // set char mode
-    send(session_socket, e2, sizeof(e2), 0);
-
-//    constexpr char e3[] = {'\xff','\xfd','\x1f'}; // set char mode
-//    send(session_socket, e3, sizeof(e3), 0);
-
+void setenv() {    
+    send(session_socket, TELNET::WILL_SGA.data(), TELNET::WILL_SGA.size(), 0);
 }
 
    
 cmdPack defineCmd(const std::string& input) {
 
     cmdPack cp {};
-    
-    auto cmdStart = input.find_first_not_of(SPACE_TAB); // ignore starting spaces
 
-    if(std::string::npos == cmdStart) {
-        cp.code = cmdCode::empty_input;
-        cp.args = "";
-    } else {
-        auto cmdEnd = input.find_first_of(SPACE_TAB, cmdStart);
+    if (TELNET::CMD_CODE::IAC == input.front()) {
+        cp.code = cmdCode::iac;
+        cp.args = input;
+    } else {    
+        auto cmdStart = input.find_first_not_of(ASCII::SPACE_TAB); // ignore starting spaces
 
-        std::size_t count = (std::string::npos == cmdEnd) ? cmdEnd : (cmdEnd - cmdStart) ;
-        
-        auto it = cmdMap.find(input.substr(cmdStart, count));
+        if(std::string::npos == cmdStart) {
+            cp.code = cmdCode::empty_input;
+            cp.args = "";
+        } else {
+            auto cmdEnd = input.find_first_of(ASCII::SPACE_TAB, cmdStart);
 
-        cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
+            std::size_t count = (std::string::npos == cmdEnd) ? cmdEnd : (cmdEnd - cmdStart) ;
+            
+            auto it = cmdMap.find(input.substr(cmdStart, count));
 
-        cp.args = input.substr(cmdStart);
+            cp.code = (it != cmdMap.end()) ? it->second : cmdCode::notValid;
+
+            cp.args = input.substr(cmdStart);
+        }
     }
-
     return cp;
 }
 
@@ -157,7 +173,7 @@ std::string processCmd(const cmdPack& cp) {
     std::string output = fDescr.cb(cp.args);
 
     if(! output.empty()) {
-        output.append(CR_LF);
+        output.append(ASCII::CR_LF);
     }    
 
     return output;
@@ -170,7 +186,7 @@ namespace session {
 void handler(int sock, bool& isActiveFlag) {
     
     session_socket = sock; // init thread local variable for socket
-    CTRLcmdPart.reserve(CTRL_CMD_SIZE);
+    CTRLcmdPart.reserve(CTRL_CMD_BUFFER_SIZE);
     USERcmdPart.reserve(MAX_USER_CMD_SIZE);
 
     setenv();
@@ -193,8 +209,8 @@ void handler(int sock, bool& isActiveFlag) {
             if(cmdCode::exit == cmd_pack.code) {
                 isActiveFlag = false;
                 break;
-            }            
-        }
+            }
+        } 
         prompt();
     }
 
