@@ -2,21 +2,22 @@
 #define help_h
 
 #include "commonDefs.hpp"
+#include "commands.hpp"
 
 using namespace term_app;
 
 std::string processHelp(const std::string& arg) {
-    std::string replyToSend {"Help output"};
+
+    std::string replyToSend {"Allowable commands:\r\n\t"};
+    
+    for(auto& e: cmdMap) {        
+        replyToSend.append(e.first).append(" ");
+    }
 
     return replyToSend;
 };
 
 // TODO: move to separate files
-std::string processEmptyInput(const std::string& arg) {
-
-    return std::string {};
-};
-
 std::string processCmd1(const std::string& arg) {
     std::string replyToSend {"Cmd1 output"};
 
@@ -40,13 +41,6 @@ std::string processQuit(const std::string& arg) {
 
     return replyToSend;
 };
-
-std::string processFailure(const std::string& arg) {
-    std::string replyToSend {"\tUnknown command:"};
-
-    return replyToSend.append(arg);
-};
-
 
 //
 

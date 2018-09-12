@@ -7,7 +7,7 @@
 #include <queue>
 #include "commonDefs.hpp"
 #include "session.hpp"
-#include "commands.hpp"
+#include "commandToCallbackMap.hpp"
 #include "telnetCtrlCommands.hpp"
 
 #include <sstream>
@@ -18,6 +18,11 @@ namespace {
 /*---------------------------- types definitions ---------------------------------------------------------------------*/
 
 using InputBuffer_T = std::array<char,MAX_BUF_SIZE>;
+
+struct cmdPack {
+    cmdCode code;
+    std::string args;
+};
 
 /*---------------------------- variables definitions -----------------------------------------------------------------*/
 

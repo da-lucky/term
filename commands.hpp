@@ -2,41 +2,27 @@
 #define COMMANDS_HPP
 
 #include <map>
-#include <functional>
-#include "help.hpp"
+#include <string>
 
 namespace term_app {
 
-enum class cmdCode;
+const std::string empty_cmd("");
 
-struct cmdPack {
-    cmdCode code;
-    std::string args;
-};
-
-using callback = std::function<std::string(const std::string&)>;
-
-struct funcCbDescriptor {
-    const char* name;
-    callback cb;
-};
-
-constexpr char empty_cmd[] = "";
-constexpr char help_cmd[] = "help";
-constexpr char cmd1_cmd[] = "cmd1";
-constexpr char cmd2_cmd[] = "cmd2";
-constexpr char exit_cmd[] = "exit";
-constexpr char quit_cmd[] = "quit";
+const std::string help_cmd("help");
+const std::string cmd1_cmd("cmd1");
+const std::string cmd2_cmd("cmd2");
+const std::string exit_cmd("exit");
+const std::string quit_cmd("quit");
 
 enum class cmdCode {
     empty_input,
+    notValid,
+
     help,
     cmd1,
     cmd2,
     exit,
-    quit,
-
-    notValid,
+    quit, 
 };
 
 const std::map<std::string, cmdCode> cmdMap {
@@ -47,17 +33,6 @@ const std::map<std::string, cmdCode> cmdMap {
     {cmd2_cmd , cmdCode::cmd2},
     {exit_cmd , cmdCode::exit},
     {quit_cmd , cmdCode::quit}
-};
-
-const std::map<cmdCode, funcCbDescriptor> fCbMap {
-    {cmdCode::empty_input, {empty_cmd, processEmptyInput}},
-
-    {cmdCode::help, {help_cmd, processHelp}},
-    {cmdCode::cmd1, {cmd1_cmd, processCmd1}},
-    {cmdCode::cmd2, {cmd2_cmd, processCmd2}},
-    {cmdCode::exit, {help_cmd, processExit}},
-    {cmdCode::quit, {help_cmd, processQuit}},
-    {cmdCode::notValid, {help_cmd, processFailure}},
 };
 
 };

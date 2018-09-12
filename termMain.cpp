@@ -49,9 +49,7 @@ void launchServer() {
     if(listen(sock, MAX_NUM_SESSIONS_ALLOWED) < 0) {
         throw std::runtime_error(formErrnoString("failed to listen socket::"));
     }
-    
-    std::cout << "starting listening local port " << LOCAL_PORT_TO_LISTEN << "\n";
-
+        
     while(true) {
         int new_sock;
         struct sockaddr_in s_in;
