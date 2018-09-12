@@ -4,13 +4,6 @@
 #include "commonDefs.hpp"
 
 using namespace term_app;
-using namespace TELNET::CMD_CODE;
-using namespace TELNET::OPTS_CODE;
-
-std::string processEmptyInput(const std::string& arg) {
-
-    return std::string {};
-};
 
 std::string processHelp(const std::string& arg) {
     std::string replyToSend {"Help output"};
@@ -19,6 +12,11 @@ std::string processHelp(const std::string& arg) {
 };
 
 // TODO: move to separate files
+std::string processEmptyInput(const std::string& arg) {
+
+    return std::string {};
+};
+
 std::string processCmd1(const std::string& arg) {
     std::string replyToSend {"Cmd1 output"};
 
@@ -44,13 +42,8 @@ std::string processQuit(const std::string& arg) {
 };
 
 std::string processFailure(const std::string& arg) {
-    std::string replyToSend {"Unknown command:"};
+    std::string replyToSend {"\tUnknown command:"};
 
-    if(IAC == *arg.begin()) {
-        for(auto c:arg) {
-            replyToSend.append(std::to_string(static_cast<uint8_t>(c))); replyToSend.push_back(' ');
-        }
-    }
     return replyToSend.append(arg);
 };
 

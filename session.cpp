@@ -125,18 +125,30 @@ void readInput() {
     }
 }
 
-void sendResponse(const std::string& response) {
-    if(-1 == send(session_socket, response.c_str(), response.size(), 0)) {
-        std::cerr << formErrnoString("send returned -1:");
+bool send(const char* const s, std::size_t length, int flags = 0) {
+    if(-1 == ::send(session_socket, s, length, flags)) {
+        
+        std::stringstream err;
+        err << std::hex;
+        for (std::size_t i = 0; i < std::min(length, 20lu); ++i) {
+            err << std::to_string(static_cast<uint8_t>(s[i])) << " ";
+        }
+        std::cerr << formErrnoString("sendResponse::send returned -1:") 
+            << "\nFirst bytes of not sent message (hex): " << err.str() << "\n";
     }
+} 
+
+void sendResponse(const std::string& response) {
+    send(response.c_str(), response.size());
 }
 
-void prompt() {    
-    send(session_socket, defaultPrompt.c_str(), defaultPrompt.size(),0);
+void prompt() {
+    send(defaultPrompt.c_str(), defaultPrompt.size());
+
 }
 
-void setenv() {    
-    send(session_socket, TELNET::WILL_SGA.data(), TELNET::WILL_SGA.size(), 0);
+void setenv() {
+    send(TELNET::WILL_SGA.data(), TELNET::WILL_SGA.size());
 }
 
    
@@ -179,6 +191,14 @@ std::string processCmd(const cmdPack& cp) {
     return output;
 }
 
+inline bool exitSession(cmdCode cmd) {
+    return (cmdCode::exit == cmd ||cmdCode::quit == cmd);
+}
+
+inline bool telnetControlCmd(const std::string& cmd) {
+    return (TELNET::CMD_CODE::IAC == cmd.front());
+}
+
 }
 
 namespace session {
@@ -196,32 +216,34 @@ void handler(int sock, bool& isActiveFlag) {
         
         readInput();
     
-        bool userCmdHandled = true;
-        
+        bool userCmdHandled = true; 
 
         while (! cmdQueue.empty()) {
 
             const std::string cmd = std::move(cmdQueue.front());
             cmdQueue.pop();
 
-            std::string responseToSend {};
+            std::string response {};
 
-            if(TELNET::CMD_CODE::IAC == cmd.front()) {
-                responseToSend = processIAC(cmd);
+            if(telnetControlCmd(cmd)) {
+
+                response = processIAC(cmd);
+
                 userCmdHandled = false;
+
             } else {
                 auto cmd_pack = defineCmd(cmd);            
                    
-                responseToSend = processCmd(cmd_pack);                
+                response = processCmd(cmd_pack);                
 
                 userCmdHandled = true;
 
-                if(cmdCode::exit == cmd_pack.code) {
+                if(exitSession(cmd_pack.code)) {
                     isActiveFlag = false;
                     break;
                 }
             }
-            sendResponse(std::move(responseToSend));
+            sendResponse(std::move(response));
         }      
 
         if(isActiveFlag && userCmdHandled) {
