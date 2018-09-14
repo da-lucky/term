@@ -249,54 +249,58 @@ namespace session {
 void handler(int sock, bool& isActiveFlag) {
     
     session_socket = sock; // init thread local variable for socket
-    CTRLcmdPart.reserve(CTRL_CMD_BUFFER_SIZE);
-    USERcmdPart.reserve(MAX_USER_CMD_SIZE);
-
-    setenv();
-    prompt();
-
-    while(isActiveFlag) {
-        
-        readInput();
     
-        bool userCmdHandled = true; 
+    try {
+        CTRLcmdPart.reserve(CTRL_CMD_BUFFER_SIZE);
+        USERcmdPart.reserve(MAX_USER_CMD_SIZE);
 
-        while (! cmdQueue.empty()) {
+        setenv();
+        prompt();
 
-            const std::string cmd = std::move(cmdQueue.front());
-            cmdQueue.pop();
+        while(isActiveFlag) {
+            
+            readInput();
+        
+            bool userCmdHandled = true; 
 
-            std::string response {};
+            while (! cmdQueue.empty()) {
 
-            if(telnetControlCmd(cmd)) {
+                const std::string cmd = std::move(cmdQueue.front());
+                cmdQueue.pop();
 
-                response = processIAC(cmd);
+                std::string response {};
 
-                userCmdHandled = false;
+                if(telnetControlCmd(cmd)) {
 
-            } else {
-                auto cmd_pack = defineCmd(cmd);            
-                   
-                response = processCmd(cmd_pack);                
+                    response = processIAC(cmd);
 
-                userCmdHandled = true;
+                    userCmdHandled = false;
 
-                if(exitSession(cmd_pack.code)) {
-                    isActiveFlag = false;
-                    break;
+                } else {
+                    auto cmd_pack = defineCmd(cmd);            
+                       
+                    response = processCmd(cmd_pack);                
+
+                    userCmdHandled = true;
+
+                    if(exitSession(cmd_pack.code)) {
+                        isActiveFlag = false;
+                        break;
+                    }
                 }
-            }
-            sendResponse(std::move(response));
-        }      
+                sendResponse(std::move(response));
+            }      
 
-        if(isActiveFlag && userCmdHandled) {
-            prompt();
+            if(isActiveFlag && userCmdHandled) {
+                prompt();
+            }
         }
+    } catch (std::exception& e) {
+        std::cerr << "exception in thread: " << e.what() << "\n";
     }
 
     isActiveFlag = false;
     close(session_socket);
-    return;    
 }
 
 }
