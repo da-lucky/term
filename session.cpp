@@ -36,6 +36,48 @@ thread_local std::string USERcmdPart {};
 thread_local std::string CTRLcmdPart {};
 
 /*---------------------------- functions definitions -----------------------------------------------------------------*/
+bool send(const char* const s, std::size_t length, int flags = 0) {
+    if(-1 == ::send(session_socket, s, length, flags)) {
+        
+        std::stringstream err;
+        err << std::hex;
+        for (std::size_t i = 0; i < std::min(length, 20lu); ++i) {
+            err << std::to_string(static_cast<uint8_t>(s[i])) << " ";
+        }
+        std::cerr << formErrnoString("sendResponse::send returned -1:") 
+            << "\nFirst bytes of not sent message (hex): " << err.str() << "\n";
+    }
+} 
+
+void handleTab() {
+    std::string output;
+
+    std::vector<typename std::map<std::string, cmdCode>::const_pointer> cmdMatch {};
+    for(auto& e: cmdMap) {
+        if(std::equal(USERcmdPart.begin(), USERcmdPart.end(), e.first.begin())) {
+            cmdMatch.push_back(&e);
+        }
+    }
+        
+    if(cmdMatch.size() == 1) {
+
+        output.append(cmdMatch.front()->first.substr( 0 + USERcmdPart.size() ));
+
+        USERcmdPart = cmdMatch.front()->first; 
+
+    } else if(! cmdMatch.empty()) {
+
+        output.append(ASCII::CR_LF_TAB);
+
+        for(auto& e: cmdMatch) {
+            output.append(e->first).append(" ");
+        }            
+        output.append(ASCII::CR_LF).append(defaultPrompt).append(USERcmdPart);
+    }
+
+    send(output.data(), output.size());
+}
+
 void handleSymbol(char symbol) {
 
     if(( ! USERcmdPart.empty() ) && ( ASCII::ESC == USERcmdPart.back() ) && ('[' != symbol)) {
@@ -47,17 +89,20 @@ void handleSymbol(char symbol) {
         case ASCII::CR :
             cmdQueue.emplace(USERcmdPart);
             USERcmdPart.clear();
-            send(session_socket, ASCII::CR_LF.data(), ASCII::CR_LF.size(), 0);
+            send(ASCII::CR_LF.data(), ASCII::CR_LF.size());
             break;
         case ASCII::ETX : // ^C
         case ASCII::EOT : // ^D
         case ASCII::LF :
         case ASCII::NUL :
             break;
+        case ASCII::TAB : 
+            handleTab();
+            break;
         case ASCII::DEL :
             if(! USERcmdPart.empty()) {
                 USERcmdPart.pop_back();
-                send(session_socket, MOVEMENT_ESCAPE_SEQ::BW_ERASE.data(), MOVEMENT_ESCAPE_SEQ::BW_ERASE.size(), 0);
+                send(MOVEMENT_ESCAPE_SEQ::BW_ERASE.data(), MOVEMENT_ESCAPE_SEQ::BW_ERASE.size());
             }
             break;      
         default:
@@ -68,7 +113,7 @@ void handleSymbol(char symbol) {
 
             if(std::string::npos == escPos) {
                 std::string echo = std::string(1,symbol) + MOVEMENT_ESCAPE_SEQ::BW_FW;
-                send(session_socket, echo.data(), echo.size(), 0);
+                send(echo.data(), echo.size());
             } else if ((USERcmdPart.size() - escPos) > 2) {
                 USERcmdPart.erase(escPos, 3);
             }                    
@@ -129,19 +174,6 @@ void readInput() {
         }
     }
 }
-
-bool send(const char* const s, std::size_t length, int flags = 0) {
-    if(-1 == ::send(session_socket, s, length, flags)) {
-        
-        std::stringstream err;
-        err << std::hex;
-        for (std::size_t i = 0; i < std::min(length, 20lu); ++i) {
-            err << std::to_string(static_cast<uint8_t>(s[i])) << " ";
-        }
-        std::cerr << formErrnoString("sendResponse::send returned -1:") 
-            << "\nFirst bytes of not sent message (hex): " << err.str() << "\n";
-    }
-} 
 
 void sendResponse(const std::string& response) {
     send(response.c_str(), response.size());

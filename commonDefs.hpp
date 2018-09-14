@@ -39,7 +39,8 @@ namespace ASCII {
     constexpr char TAB {'\x09'};
     constexpr char DEL {'\x7f'};
 
-    const std::string CR_LF{ASCII::CR, ASCII::LF};   
+    const std::string CR_LF{ASCII::CR, ASCII::LF};
+    const std::string CR_LF_TAB{ASCII::CR, ASCII::LF, ASCII::TAB};
     const std::string SPACE_TAB{ASCII::SPACE, ASCII::TAB};
 }
 
