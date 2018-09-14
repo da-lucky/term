@@ -46,24 +46,30 @@ bool send(const char* const s, std::size_t length, int flags = 0) {
         }
         std::cerr << formErrnoString("sendResponse::send returned -1:") 
             << "\nFirst bytes of not sent message (hex): " << err.str() << "\n";
+        return false;
     }
+    return true;
 } 
 
 void handleTab() {
     std::string output;
 
     std::vector<typename std::map<std::string, cmdCode>::const_pointer> cmdMatch {};
+
+    auto firstNonSpace = USERcmdPart.find_first_not_of(ASCII::SPACE);
+    auto cmdStart = (std::string::npos == firstNonSpace) ? USERcmdPart.begin() : USERcmdPart.begin() + firstNonSpace;
+
     for(auto& e: cmdMap) {
-        if(std::equal(USERcmdPart.begin(), USERcmdPart.end(), e.first.begin())) {
+        if(std::equal(cmdStart, USERcmdPart.end(), e.first.begin())) {
             cmdMatch.push_back(&e);
         }
     }
         
     if(cmdMatch.size() == 1) {
 
-        output.append(cmdMatch.front()->first.substr( 0 + USERcmdPart.size() ));
+        output.append(cmdMatch.front()->first.substr( USERcmdPart.size() - firstNonSpace ));
 
-        USERcmdPart = cmdMatch.front()->first; 
+        USERcmdPart.append(output);
 
     } else if(! cmdMatch.empty()) {
 
