@@ -26,7 +26,7 @@ struct cmdPack {
 
 /*---------------------------- variables definitions -----------------------------------------------------------------*/
 
-const std::string defaultPrompt(std::string(MOVEMENT_ESCAPE_SEQ::BLANK_LINE) + std::string(APP_NAME) + std::string(":"));
+const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
 
 thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
@@ -65,10 +65,9 @@ void handleMovementSeq(const std::string& mSeq) {
         USERcmdPart = sessionHistory.getNext();
     }
 
-    std::string output {defaultPrompt + USERcmdPart};
+    std::string output {MOVEMENT_ESCAPE_SEQ::BLANK_LINE + defaultPrompt + USERcmdPart};
 
     send(output.data(), output.size());
-//        output.clear(); output.append(MOVEMENT_ESCAPE_SEQ::CLEAR_SCR).append(MOVEMENT_ESCAPE_SEQ::BLANK_LINE).append(MOVEMENT_ESCAPE_SEQ::POS_0_0).append(defaultPrompt);
 }
 
 void handleTab() {
@@ -85,7 +84,7 @@ void handleTab() {
         }
     }
 
-    // check if current command is a top one (hot from history list) and update if yes later after modification
+    // check if current command is a top one (not from history list) and update if "yes" later after modification
     bool updateTop = (sessionHistory.getTopCmd() == USERcmdPart) ? true : false;
 
     if(cmdMatch.size() == 1) {
@@ -101,7 +100,7 @@ void handleTab() {
         for(auto& e: cmdMatch) {
             output.append(e->first).append(" ");
         }            
-        output.append(1,ASCII::LF).append(defaultPrompt).append(USERcmdPart);
+        output.append(ASCII::CR_LF).append(defaultPrompt).append(USERcmdPart);
     }
 
     if(updateTop) {
@@ -137,7 +136,7 @@ void handleSymbol(char symbol) {
             break;
         case ASCII::DEL :
             if(! USERcmdPart.empty()) {
-                // check if current command is a top one (hot from history list) and update if yes later after modification
+                // check if current command is a top one (not from history list) and update if "yes" later after modification
                 bool updateTop = (sessionHistory.getTopCmd() == USERcmdPart) ? true : false;
 
                 USERcmdPart.pop_back();
@@ -232,7 +231,10 @@ void prompt() {
 
 }
 
-void setenv() {
+void initSession() {
+    std::string clearScreen{MOVEMENT_ESCAPE_SEQ::CLEAR_SCR + MOVEMENT_ESCAPE_SEQ::POS_0_0};
+    send(clearScreen.data(), clearScreen.size());
+
     send(TELNET::WILL_SGA.data(), TELNET::WILL_SGA.size());
 }
 
@@ -269,10 +271,6 @@ std::string processCmd(const cmdPack& cp) {
     
     std::string output = fDescr.cb(cp.args);
 
-    if(! output.empty()) {
-        output.append(ASCII::CR_LF);
-    }    
-
     return output;
 }
 
@@ -296,7 +294,7 @@ void handler(int sock, bool& isActiveFlag) {
         CTRLcmdPart.reserve(CTRL_CMD_BUFFER_SIZE);
         USERcmdPart.reserve(MAX_USER_CMD_SIZE);
 
-        setenv();
+        initSession();
         prompt();
 
         while(isActiveFlag) {

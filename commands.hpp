@@ -13,6 +13,7 @@ const std::string cmd1_cmd("cmd1");
 const std::string cmd2_cmd("cmd2");
 const std::string exit_cmd("exit");
 const std::string quit_cmd("quit");
+const std::string clear_cmd("clear");
 
 enum class cmdCode {
     empty_input,
@@ -23,6 +24,7 @@ enum class cmdCode {
     cmd2,
     exit,
     quit, 
+    clear,
 };
 
 const std::map<std::string, cmdCode> cmdMap {
@@ -32,7 +34,8 @@ const std::map<std::string, cmdCode> cmdMap {
     {cmd1_cmd , cmdCode::cmd1},
     {cmd2_cmd , cmdCode::cmd2},
     {exit_cmd , cmdCode::exit},
-    {quit_cmd , cmdCode::quit}
+    {quit_cmd , cmdCode::quit},
+    {clear_cmd , cmdCode::clear}
 };
 
 };

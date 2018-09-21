@@ -17,14 +17,14 @@ struct funcCbDescriptor {
 
 const std::map<cmdCode, funcCbDescriptor> fCbMap {
     {cmdCode::empty_input,  {empty_cmd, [](const std::string&) { return std::string {}; }}},
-    {cmdCode::notValid,     {empty_cmd, [](const std::string& c) { std::string s("\tUnknown command:");  return s.append(c); }}},
+    {cmdCode::notValid,     {empty_cmd, [](const std::string& c) { return std::string {std::string{"\tUnknown command:"} + c + ASCII::CR_LF}; }}},
 
     {cmdCode::help, {help_cmd, processHelp}},
     {cmdCode::cmd1, {cmd1_cmd, processCmd1}},
     {cmdCode::cmd2, {cmd2_cmd, processCmd2}},
     {cmdCode::exit, {exit_cmd, processExit}},
     {cmdCode::quit, {quit_cmd, processQuit}},
-    
+    {cmdCode::clear, {clear_cmd, processClear}},
 };
 }
 
