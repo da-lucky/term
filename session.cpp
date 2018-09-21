@@ -54,18 +54,18 @@ bool send(const char* const s, std::size_t length, int flags = 0) {
 
 void handleMovementSeq(const std::string& mSeq) {
    
-    if (MOVEMENT_ESCAPE_SEQ::BUTTON_BW == mSeq || MOVEMENT_ESCAPE_SEQ::BUTTON_FW == mSeq) {
+    if (TERMINAL_ESCAPE_SEQ::BUTTON_BW == mSeq || TERMINAL_ESCAPE_SEQ::BUTTON_FW == mSeq) {
         return;
     }
 
-    if(MOVEMENT_ESCAPE_SEQ::BUTTON_UP == mSeq) {
+    if(TERMINAL_ESCAPE_SEQ::BUTTON_UP == mSeq) {
         USERcmdPart = sessionHistory.getPrev();
     }
-    else if(MOVEMENT_ESCAPE_SEQ::BUTTON_DOWN == mSeq) {
+    else if(TERMINAL_ESCAPE_SEQ::BUTTON_DOWN == mSeq) {
         USERcmdPart = sessionHistory.getNext();
     }
 
-    std::string output {MOVEMENT_ESCAPE_SEQ::BLANK_LINE + defaultPrompt + USERcmdPart};
+    std::string output {TERMINAL_ESCAPE_SEQ::BLANK_LINE + defaultPrompt + USERcmdPart};
 
     send(output.data(), output.size());
 }
@@ -144,7 +144,7 @@ void handleSymbol(char symbol) {
                 if(updateTop) {
                     sessionHistory.updateTopCmd(USERcmdPart);
                 }
-                send(MOVEMENT_ESCAPE_SEQ::BW_ERASE.data(), MOVEMENT_ESCAPE_SEQ::BW_ERASE.size());
+                send(TERMINAL_ESCAPE_SEQ::BW_ERASE.data(), TERMINAL_ESCAPE_SEQ::BW_ERASE.size());
             }
             break;      
         default:
@@ -154,13 +154,13 @@ void handleSymbol(char symbol) {
             auto escPos = USERcmdPart.find(ASCII::ESC);
 
             if(std::string::npos == escPos) {
-                std::string echo = std::string(1,symbol) + MOVEMENT_ESCAPE_SEQ::BW_FW;
+                std::string echo = std::string(1,symbol) + TERMINAL_ESCAPE_SEQ::BW_FW;
                 send(echo.data(), echo.size());
                 sessionHistory.updateTopCmd(USERcmdPart);
 
             } else if ((USERcmdPart.size() - escPos) > 2) {
-                auto mSeq = USERcmdPart.substr(escPos, MOVEMENT_ESCAPE_SEQ::BUTTON_CODE_SIZE);
-                USERcmdPart.erase(escPos, MOVEMENT_ESCAPE_SEQ::BUTTON_CODE_SIZE);
+                auto mSeq = USERcmdPart.substr(escPos, TERMINAL_ESCAPE_SEQ::BUTTON_CODE_SIZE);
+                USERcmdPart.erase(escPos, TERMINAL_ESCAPE_SEQ::BUTTON_CODE_SIZE);
 
                 handleMovementSeq(mSeq);
             }                    
@@ -232,7 +232,7 @@ void prompt() {
 }
 
 void initSession() {
-    std::string clearScreen{MOVEMENT_ESCAPE_SEQ::CLEAR_SCR + MOVEMENT_ESCAPE_SEQ::POS_0_0};
+    std::string clearScreen{TERMINAL_ESCAPE_SEQ::CLEAR_SCR + TERMINAL_ESCAPE_SEQ::POS_0_0};
     send(clearScreen.data(), clearScreen.size());
 
     send(TELNET::WILL_SGA.data(), TELNET::WILL_SGA.size());

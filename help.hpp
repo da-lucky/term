@@ -19,7 +19,7 @@ std::string processHelp(const std::string& arg) {
 
 std::string processClear(const std::string& arg) {
 
-    return std::string{MOVEMENT_ESCAPE_SEQ::CLEAR_SCR + MOVEMENT_ESCAPE_SEQ::POS_0_0};
+    return std::string{TERMINAL_ESCAPE_SEQ::CLEAR_SCR + TERMINAL_ESCAPE_SEQ::POS_0_0};
 }
 
 // TODO: move to separate files

@@ -44,18 +44,18 @@ namespace ASCII {
     const std::string SPACE_TAB{ASCII::SPACE, ASCII::TAB};
 }
 
-namespace MOVEMENT_ESCAPE_SEQ {
+namespace TERMINAL_ESCAPE_SEQ {
     const std::string BUTTON_UP        = {'\x1b', '\x5b', '\x41'};  // \033[A
     const std::string BUTTON_DOWN      = {'\x1b', '\x5b', '\x42'};  // \033[B
     const std::string BUTTON_BW        = {'\x1b', '\x5b', '\x44'};  // \033[D
     const std::string BUTTON_FW        = {'\x1b', '\x5b', '\x43'};  // \033[C
     const std::size_t BUTTON_CODE_SIZE = 3;
 
-    const std::string BW_FW = {'\x1b', '\x5b', '\x44', '\x1b', '\x5b', '\x43'};   // \033[D\033[C
-    const std::string BW_ERASE = {'\x1b', '\x5b', '\x44', '\x1b', '\x5b', '\x4b'}; // \033[D\033[K
-    const std::string CLEAR_SCR = {'\x1b', '\x5b', '\x32', '\x4a' }; // Clear the screen, move to (0,0)
-    const std::string POS_0_0 = { '\x1b', '\x5b', '\x30',   '\x3b', '\x30', '\x48'};
-    const std::string ERASE = {'\x1b', '\x5b', '\x4b'}; // Erase to end of line from current position 
+    const std::string BW_FW         = {'\x1b', '\x5b', '\x44', '\x1b', '\x5b', '\x43'};     // \033[D\033[C
+    const std::string BW_ERASE      = {'\x1b', '\x5b', '\x44', '\x1b', '\x5b', '\x4b'};     // \033[D\033[K
+    const std::string CLEAR_SCR     = {'\x1b', '\x5b', '\x32', '\x4a'};                     // Clear the screen, move to (0,0)
+    const std::string POS_0_0       = {'\x1b', '\x5b', '\x30', '\x3b', '\x30', '\x48'};
+    const std::string ERASE         = {'\x1b', '\x5b', '\x4b'};                             // Erase to end of line from current position 
 
     const std::string BLANK_LINE = std::string(1,'\r') + ERASE;
 }
@@ -67,7 +67,7 @@ namespace CMD_CODE {
     constexpr char SB =     '\xfa';
     constexpr char WILL =   '\xfb';
     constexpr char WONT =   '\xfc';
-    constexpr char DO =     '\xfd';    
+    constexpr char DO =     '\xfd';
     constexpr char DONT =   '\xfe';
     constexpr char IAC =    '\xff';
 }
