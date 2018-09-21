@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <sstream>
-
+#include <list>
 
 namespace term_app {
 
@@ -45,13 +45,19 @@ namespace ASCII {
 }
 
 namespace MOVEMENT_ESCAPE_SEQ {
-    const std::string UP = {'\x1b', '\x5b', '\x41'};    // \033[A
-    const std::string DOWN = {'\x1b', '\x5b', '\x42'};  // \033[B
-    const std::string BW = {'\x1b', '\x5b', '\x44'};    // \033[D
-    const std::string FW = {'\x1b', '\x5b', '\x43'};  // \033[C
+    const std::string BUTTON_UP        = {'\x1b', '\x5b', '\x41'};  // \033[A
+    const std::string BUTTON_DOWN      = {'\x1b', '\x5b', '\x42'};  // \033[B
+    const std::string BUTTON_BW        = {'\x1b', '\x5b', '\x44'};  // \033[D
+    const std::string BUTTON_FW        = {'\x1b', '\x5b', '\x43'};  // \033[C
+    const std::size_t BUTTON_CODE_SIZE = 3;
 
     const std::string BW_FW = {'\x1b', '\x5b', '\x44', '\x1b', '\x5b', '\x43'};   // \033[D\033[C
     const std::string BW_ERASE = {'\x1b', '\x5b', '\x44', '\x1b', '\x5b', '\x4b'}; // \033[D\033[K
+    const std::string CLEAR_SCR = {'\x1b', '\x5b', '\x32', '\x4a' }; // Clear the screen, move to (0,0)
+    const std::string POS_1_1 = { '\x1b', '\x5b', '\x31',   '\x3b', '\x31', '\x48'};
+    const std::string ERASE = {'\x1b', '\x5b', '\x4b'}; // Erase to end of line from current position 
+
+    const std::string BLANK_LINE = std::string(1,'\r') + ERASE;
 }
 
 namespace TELNET {
@@ -78,6 +84,8 @@ const std::string WILL_ECHO = {CMD_CODE::IAC, CMD_CODE::WILL, OPTS_CODE::ECHO};
 const std::string DO_ECHO = {CMD_CODE::IAC, CMD_CODE::DO, OPTS_CODE::ECHO};
 
 }
+
+using StringList = std::list<std::string>;
 }
 
 #endif

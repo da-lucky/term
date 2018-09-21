@@ -9,7 +9,7 @@
 #include "session.hpp"
 #include "commandToCallbackMap.hpp"
 #include "telnetCtrlCommands.hpp"
-
+#include "sessionHistory.hpp"
 #include <sstream>
 
 using namespace term_app;
@@ -26,11 +26,12 @@ struct cmdPack {
 
 /*---------------------------- variables definitions -----------------------------------------------------------------*/
 
-const std::string defaultPrompt(std::string(APP_NAME) + std::string(":"));
+const std::string defaultPrompt(std::string(MOVEMENT_ESCAPE_SEQ::BLANK_LINE) + std::string(APP_NAME) + std::string(":"));
 
 thread_local std::queue<std::string> cmdQueue {};
 thread_local InputBuffer_T inputBuffer {};
 thread_local int session_socket {};
+thread_local SessionHistory sessionHistory {};
 
 thread_local std::string USERcmdPart {};
 thread_local std::string CTRLcmdPart {};
@@ -51,6 +52,25 @@ bool send(const char* const s, std::size_t length, int flags = 0) {
     return true;
 } 
 
+void handleMovementSeq(const std::string& mSeq) {
+   
+    if (MOVEMENT_ESCAPE_SEQ::BUTTON_BW == mSeq || MOVEMENT_ESCAPE_SEQ::BUTTON_FW == mSeq) {
+        return;
+    }
+
+    if(MOVEMENT_ESCAPE_SEQ::BUTTON_UP == mSeq) {
+        USERcmdPart = sessionHistory.getPrev();
+    }
+    else if(MOVEMENT_ESCAPE_SEQ::BUTTON_DOWN == mSeq) {
+        USERcmdPart = sessionHistory.getNext();
+    }
+
+    std::string output {defaultPrompt + USERcmdPart};
+
+    send(output.data(), output.size());
+//        output.clear(); output.append(MOVEMENT_ESCAPE_SEQ::CLEAR_SCR).append(MOVEMENT_ESCAPE_SEQ::BLANK_LINE).append(MOVEMENT_ESCAPE_SEQ::POS_0_0).append(defaultPrompt);
+}
+
 void handleTab() {
     std::string output;
 
@@ -64,7 +84,10 @@ void handleTab() {
             cmdMatch.push_back(&e);
         }
     }
-        
+
+    // check if current command is a top one (hot from history list) and update if yes later after modification
+    bool updateTop = (sessionHistory.getTopCmd() == USERcmdPart) ? true : false;
+
     if(cmdMatch.size() == 1) {
 
         output.append(cmdMatch.front()->first.substr( USERcmdPart.size() - firstNonSpace ));
@@ -78,7 +101,11 @@ void handleTab() {
         for(auto& e: cmdMatch) {
             output.append(e->first).append(" ");
         }            
-        output.append(ASCII::CR_LF).append(defaultPrompt).append(USERcmdPart);
+        output.append(1,ASCII::LF).append(defaultPrompt).append(USERcmdPart);
+    }
+
+    if(updateTop) {
+        sessionHistory.updateTopCmd(USERcmdPart);
     }
 
     send(output.data(), output.size());
@@ -93,9 +120,12 @@ void handleSymbol(char symbol) {
     switch (symbol) {
            
         case ASCII::CR :
+            if( ! USERcmdPart.empty() ) {
+                sessionHistory.completeCmd(USERcmdPart);
+            }
             cmdQueue.emplace(USERcmdPart);
             USERcmdPart.clear();
-            send(ASCII::CR_LF.data(), ASCII::CR_LF.size());
+            send(ASCII::CR_LF.data(), ASCII::CR_LF.size());            
             break;
         case ASCII::ETX : // ^C
         case ASCII::EOT : // ^D
@@ -107,7 +137,14 @@ void handleSymbol(char symbol) {
             break;
         case ASCII::DEL :
             if(! USERcmdPart.empty()) {
+                // check if current command is a top one (hot from history list) and update if yes later after modification
+                bool updateTop = (sessionHistory.getTopCmd() == USERcmdPart) ? true : false;
+
                 USERcmdPart.pop_back();
+                
+                if(updateTop) {
+                    sessionHistory.updateTopCmd(USERcmdPart);
+                }
                 send(MOVEMENT_ESCAPE_SEQ::BW_ERASE.data(), MOVEMENT_ESCAPE_SEQ::BW_ERASE.size());
             }
             break;      
@@ -120,8 +157,13 @@ void handleSymbol(char symbol) {
             if(std::string::npos == escPos) {
                 std::string echo = std::string(1,symbol) + MOVEMENT_ESCAPE_SEQ::BW_FW;
                 send(echo.data(), echo.size());
+                sessionHistory.updateTopCmd(USERcmdPart);
+
             } else if ((USERcmdPart.size() - escPos) > 2) {
-                USERcmdPart.erase(escPos, 3);
+                auto mSeq = USERcmdPart.substr(escPos, MOVEMENT_ESCAPE_SEQ::BUTTON_CODE_SIZE);
+                USERcmdPart.erase(escPos, MOVEMENT_ESCAPE_SEQ::BUTTON_CODE_SIZE);
+
+                handleMovementSeq(mSeq);
             }                    
     }
 }
@@ -277,9 +319,9 @@ void handler(int sock, bool& isActiveFlag) {
                     userCmdHandled = false;
 
                 } else {
-                    auto cmd_pack = defineCmd(cmd);            
-                       
-                    response = processCmd(cmd_pack);                
+                    auto cmd_pack = defineCmd(cmd);                                       
+
+                    response = processCmd(cmd_pack);
 
                     userCmdHandled = true;
 
